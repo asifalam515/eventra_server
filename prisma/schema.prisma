@@ -12,89 +12,165 @@ datasource db {
   provider = "postgresql"
 }
 
-enum NoteStatus {
-  ACTIVE
-  ARCHIVED
-}
+//
+// 🔐 ENUMS
+//
 
-enum Status{
-  ACTIVE
-  INACTIVE
-  BLOCKED
-}
-enum Role{
-  ADMIN
+enum Role {
   USER
+  ADMIN
   MODERATOR
 }
 
+enum EventType {
+  PUBLIC
+  PRIVATE
+}
+
+enum ParticipationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  BANNED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  FAILED
+}
+
+//
+// 👤 USER
+//
+
 model User {
-  id        String     @id @default(uuid())
-  name      String
-  email     String     @unique
-  password  String
-  status Status @default(ACTIVE)
-  role Role @default(USER)
-  avatar    String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  password      String
+  photo         String?
+  role          Role     @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  notes     Note[]
-  resources Resource[]
+  // Relations
+  events        Event[]          @relation("EventCreator")
+  payments Payment[]
+  participations Participant[]
+  invitations   Invitation[]
+  reviews       Review[]
 }
 
+//
+// 🎉 EVENT
+//
 
+model Event {
+  id            String   @id @default(uuid())
+  title         String
+  description   String
+  date          DateTime
+  time          String
+  venue         String
+  type          EventType
+  fee           Float    @default(0)
+  isFeatured    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-model Note {
-  id        String     @id @default(uuid())
-  title     String
-  content   String
-  status    NoteStatus @default(ACTIVE)
+  // Relations
+  payments Payment[]
+  creatorId     String
+  creator       User @relation("EventCreator", fields: [creatorId], references: [id])
 
-  userId    String
-  user      User       @relation(fields: [userId], references: [id])
-
-  tags      NoteTag[]
-
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  @@index([userId])
+  participants  Participant[]
+  invitations   Invitation[]
+  reviews       Review[]
 }
 
+//
+// 👥 PARTICIPANT (JOIN / REQUEST SYSTEM)
+//
 
-
-model Tag {
-  id    String @id @default(uuid())
-  name  String @unique
-
-  notes NoteTag[]
-}
-
-
-
-model NoteTag {
-  noteId String
-  tagId  String
-
-  note   Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([noteId, tagId])
-}
-
-
-
-model Resource {
+model Participant {
   id          String   @id @default(uuid())
-  title       String
-  link        String
-  description String?
-
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-
+  status      ParticipationStatus @default(PENDING)
+  payment     PaymentStatus       @default(UNPAID)
   createdAt   DateTime @default(now())
 
-  @@index([userId])
+  // Relations
+  userId      String
+  eventId     String
+
+  user        User  @relation(fields: [userId], references: [id])
+  event       Event @relation(fields: [eventId], references: [id])
+
+  @@unique([userId, eventId]) // prevent duplicate join
+}
+
+//
+// 📩 INVITATION
+//
+
+model Invitation {
+  id          String   @id @default(uuid())
+  status      InvitationStatus @default(PENDING)
+  payment     PaymentStatus    @default(UNPAID)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  eventId     String
+  userId      String
+
+  event       Event @relation(fields: [eventId], references: [id])
+  user        User  @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+}
+
+//
+// ⭐ REVIEW
+//
+
+model Review {
+  id          String   @id @default(uuid())
+  rating      Int      // 1–5
+  comment     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId      String
+  eventId     String
+
+  user        User  @relation(fields: [userId], references: [id])
+  event       Event @relation(fields: [eventId], references: [id])
+
+  @@unique([userId, eventId]) // one review per user per event
+}
+
+//
+// 💳 PAYMENT (TRANSACTION LOG)
+//
+
+model Payment {
+  id            String   @id @default(uuid())
+  amount        Float
+  status        PaymentStatus
+  transactionId String   @unique
+  createdAt     DateTime @default(now())
+
+  // Relations
+  userId        String
+  eventId       String
+
+  user          User  @relation(fields: [userId], references: [id])
+  event         Event @relation(fields: [eventId], references: [id])
 }

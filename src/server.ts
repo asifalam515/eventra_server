@@ -2,7 +2,6 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { Application, Request, Response } from "express";
 import { AuthRouter } from "./app/module/Auth/auth.router";
-import { tagsRouter } from "./app/module/tag/tag.router";
 const app: Application = express();
 const port = 5000; // The port your express server will be running on.
 
@@ -16,11 +15,10 @@ app.use(cookieParser());
 // routers
 app.use("/api/v1/auth", AuthRouter.router);
 // tags
-app.use("/api/v1/tags", tagsRouter.router);
 
 // Basic route
 app.get("/", (req: Request, res: Response) => {
-  res.send("Hello, TypeScript + Express!");
+  res.send("Eventra Server Started");
 });
 
 // Start the server

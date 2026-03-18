@@ -9,27 +9,45 @@
 * 🟢 You can import this file directly.
 */
 
-export const NoteStatus = {
-  ACTIVE: 'ACTIVE',
-  ARCHIVED: 'ARCHIVED'
-} as const
-
-export type NoteStatus = (typeof NoteStatus)[keyof typeof NoteStatus]
-
-
-export const Status = {
-  ACTIVE: 'ACTIVE',
-  INACTIVE: 'INACTIVE',
-  BLOCKED: 'BLOCKED'
-} as const
-
-export type Status = (typeof Status)[keyof typeof Status]
-
-
 export const Role = {
-  ADMIN: 'ADMIN',
   USER: 'USER',
-  MODERATOR: 'MODERATOR'
+  ADMIN: 'ADMIN'
 } as const
 
 export type Role = (typeof Role)[keyof typeof Role]
+
+
+export const EventType = {
+  PUBLIC: 'PUBLIC',
+  PRIVATE: 'PRIVATE'
+} as const
+
+export type EventType = (typeof EventType)[keyof typeof EventType]
+
+
+export const ParticipationStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  BANNED: 'BANNED'
+} as const
+
+export type ParticipationStatus = (typeof ParticipationStatus)[keyof typeof ParticipationStatus]
+
+
+export const InvitationStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  DECLINED: 'DECLINED'
+} as const
+
+export type InvitationStatus = (typeof InvitationStatus)[keyof typeof InvitationStatus]
+
+
+export const PaymentStatus = {
+  UNPAID: 'UNPAID',
+  PAID: 'PAID',
+  FAILED: 'FAILED'
+} as const
+
+export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus]
