@@ -21,7 +21,11 @@ enum Role {
   ADMIN
   MODERATOR
 }
-
+enum Status{
+  ACTIVE
+  INACTIVE 
+  BLOCKED
+}
 enum EventType {
   PUBLIC
   PRIVATE
@@ -55,6 +59,7 @@ model User {
   name          String
   email         String   @unique
   password      String
+  status        Status @default(ACTIVE)
   photo         String?
   role          Role     @default(USER)
   createdAt     DateTime @default(now())
