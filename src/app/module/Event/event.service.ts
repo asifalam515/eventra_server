@@ -1,4 +1,5 @@
 import { prisma } from "../../../lib/prisma";
+import { AppError } from "../../errors/AppErrors";
 const createEventIntoDB = async (payload: any, userId: string) => {
   const user = await prisma.user.findUnique({
     where: {
@@ -6,7 +7,7 @@ const createEventIntoDB = async (payload: any, userId: string) => {
     },
   });
   if (!user) {
-    throw new Error("Invalid User");
+  throw new AppError(404, "User not found");
   }
   const newEvent = await prisma.event.create({
     data: { ...payload, creatorId: userId },
