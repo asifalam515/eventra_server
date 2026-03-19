@@ -10,38 +10,39 @@ export enum UserRole {
 const auth = (...roles: UserRole[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // token exists?
       const token = req.headers.authorization;
+
       if (!token) {
-        throw new Error("Token Not Found");
+        return res.status(401).json({ message: "Unauthorized" });
       }
-      // verify token
+
       const decoded = jwt.verify(token, secret!) as JwtPayload;
-      // is decoded user exists
+
       const userData = await prisma.user.findUnique({
         where: {
           email: decoded.email,
         },
       });
+
       if (!userData) {
-        throw new Error("User Not Found");
+        return res.status(404).json({ message: "User Not Found" });
       }
-      //is user status active
+
       if (userData.status !== "ACTIVE") {
-        throw new Error("Account Status is Not Active");
+        return res.status(403).json({ message: "Account not active" });
       }
-      //   check ROLE
+
       if (roles.length && !roles.includes(decoded.role)) {
-        throw new Error("Role doesn't match");
+        return res.status(403).json({ message: "Forbidden" });
       }
+
       req.user = decoded;
-      console.log(req.user);
-      next();
+
+      return next(); // ✅ ONLY ONE next()
+
     } catch (error: any) {
-      next(error);
-      throw new Error(error);
+      return next(error); // ✅ no throw
     }
-    next();
   };
 };
 export default auth;
