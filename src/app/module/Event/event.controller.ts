@@ -46,4 +46,38 @@ const getAllEvents = async (req: Request, res: Response) => {
     });
   }
 };
-export const EventController = { createEvent, getAllEvents };
+const getSingleEvent = async (req: Request, res: Response) => {
+  const eventId = req.params.id as string;
+  const event = await EventService.getEventById(eventId);
+  res.status(200).json({
+    success: true,
+    data: event,
+    message: "Event fetched successfully",
+  });
+};
+//update event by id
+const updateEvent = async (req: Request, res: Response) => {
+  const eventId = req.params.id as string;
+  const updatedData = req.body;
+  const updatedEvent = await EventService.updateEventById(eventId, updatedData);
+  res.status(200).json({
+    success: true,
+    data: updatedEvent,
+    message: "Event updated successfully",
+  });
+};
+//delete event
+const deleteEvent = async (req: Request, res: Response) => {
+  await EventService.deleteEventById(req.params.id as string);
+  res.status(200).json({
+    success: true,
+    message: "Event deleted successfully",
+  });
+};
+export const EventController = {
+  createEvent,
+  getAllEvents,
+  getSingleEvent,
+  updateEvent,
+  deleteEvent,
+};

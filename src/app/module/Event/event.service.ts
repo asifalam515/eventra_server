@@ -47,4 +47,57 @@ const getAllEvents = async (filters: any, pagination: any) => {
 
   return events;
 };
-export const EventService = { createEventIntoDB, getAllEvents };
+//get event by id
+const getEventById = async (id: string) => {
+  const event = await prisma.event.findUnique({
+    where: {
+      id,
+    },
+  });
+  if (!event) {
+    throw new AppError(404, "Event not found");
+  }
+  return event;
+};
+//update event by id
+const updateEventById = async (id: string, payload: any) => {
+  const event = await prisma.event.findUnique({
+    where: {
+      id,
+    },
+  });
+  if (!event) {
+    throw new AppError(404, "Event not found");
+  }
+  const updatedEvent = await prisma.event.update({
+    where: {
+      id,
+    },
+    data: payload,
+  });
+  return updatedEvent;
+};
+//delete event by id
+const deleteEventById = async (id: string) => {
+  const event = await prisma.event.findUnique({
+    where: {
+      id,
+    },
+  });
+  if (!event) {
+    throw new AppError(404, "Event not found");
+  }
+  await prisma.event.delete({
+    where: {
+      id,
+    },
+  });
+  return;
+};
+export const EventService = {
+  createEventIntoDB,
+  getAllEvents,
+  getEventById,
+  updateEventById,
+  deleteEventById,
+};

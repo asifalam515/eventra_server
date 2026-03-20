@@ -9,5 +9,15 @@ router.post(
   auth(UserRole.user, UserRole.admin, UserRole.moderator),
   EventController.createEvent,
 );
-
+router.get("/:id", EventController.getSingleEvent);
+router.put(
+  "/:id",
+  auth(UserRole.user, UserRole.admin, UserRole.moderator),
+  EventController.updateEvent,
+);
+router.delete(
+  "/:id",
+  auth(UserRole.user, UserRole.admin, UserRole.moderator),
+  EventController.deleteEvent,
+);
 export const eventRouter = { router };
