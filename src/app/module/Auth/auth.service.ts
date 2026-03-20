@@ -36,7 +36,7 @@ const loginUserIntoDB = async (payload: User) => {
     status: user.status,
   };
   const token = jwt.sign(userData, secret!, {
-    expiresIn: "1d",
+    expiresIn: "7d",
   });
   return {
     token,

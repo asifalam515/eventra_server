@@ -38,10 +38,9 @@ const auth = (...roles: UserRole[]) => {
 
       req.user = decoded;
 
-      return next(); // ✅ ONLY ONE next()
-
+      return next();
     } catch (error: any) {
-      return next(error); // ✅ no throw
+      return next(error);
     }
   };
 };
