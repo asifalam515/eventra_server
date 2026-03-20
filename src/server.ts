@@ -3,6 +3,7 @@ import cors from "cors";
 import express, { Application, Request, Response } from "express";
 import { AuthRouter } from "./app/module/Auth/auth.router";
 import { eventRouter } from "./app/module/Event/event.router";
+import { userRouter } from "./app/module/User/user.router";
 import { globalErrorHandler } from "./middleware/globalErrorHandler";
 import { notFound } from "./middleware/notFound";
 const app: Application = express();
@@ -19,8 +20,9 @@ app.use(cookieParser());
 app.use("/api/v1/auth", AuthRouter.router);
 // events
 app.use("/api/v1/event", eventRouter.router);
-app.use(notFound)
-app.use(globalErrorHandler)
+app.use("/api/v1/user", userRouter.router);
+app.use(notFound);
+app.use(globalErrorHandler);
 // Basic route
 app.get("/", (req: Request, res: Response) => {
   res.send("Eventra Server Started");

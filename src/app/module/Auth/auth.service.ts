@@ -43,4 +43,25 @@ const loginUserIntoDB = async (payload: User) => {
     user: user,
   };
 };
-export const AuthService = { createUserIntoDB, loginUserIntoDB };
+//logout user by clearing token from client side
+const logoutUser = () => {
+  // Clear the token from the client side (e.g., by setting it to null or an empty string)
+  return {
+    token: null,
+    user: null,
+  };
+};
+const getUserFromToken = (token: string) => {
+  try {
+    const decoded = jwt.verify(token, secret!) as jwt.JwtPayload;
+    return decoded;
+  } catch (error) {
+    throw new Error("Invalid token");
+  }
+};
+export const AuthService = {
+  createUserIntoDB,
+  loginUserIntoDB,
+  logoutUser,
+  getUserFromToken,
+};
