@@ -48,6 +48,7 @@ enum PaymentStatus {
   UNPAID
   PAID
   FAILED
+  
 }
 
 //

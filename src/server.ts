@@ -3,6 +3,7 @@ import cors from "cors";
 import express, { Application, Request, Response } from "express";
 import { AuthRouter } from "./app/module/Auth/auth.router";
 import { eventRouter } from "./app/module/Event/event.router";
+import { ParticipationRouter } from "./app/module/Participation/participation.router";
 import { userRouter } from "./app/module/User/user.router";
 import { globalErrorHandler } from "./middleware/globalErrorHandler";
 import { notFound } from "./middleware/notFound";
@@ -21,6 +22,7 @@ app.use("/api/v1/auth", AuthRouter.router);
 // events
 app.use("/api/v1/event", eventRouter.router);
 app.use("/api/v1/user", userRouter.router);
+app.use("/api/v1/participation", ParticipationRouter);
 app.use(notFound);
 app.use(globalErrorHandler);
 // Basic route

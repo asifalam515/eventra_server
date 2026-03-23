@@ -54,11 +54,13 @@ const logoutUser = () => {
 const getUserFromToken = (token: string) => {
   try {
     const decoded = jwt.verify(token, secret!) as jwt.JwtPayload;
+    
     return decoded;
   } catch (error) {
     throw new Error("Invalid token");
   }
 };
+
 export const AuthService = {
   createUserIntoDB,
   loginUserIntoDB,
