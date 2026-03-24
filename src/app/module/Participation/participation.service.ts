@@ -45,6 +45,18 @@ const joinEvent = async (userId: string, eventId: string) => {
   };
 };
 
+const getAllParticipantFromDb = async (eventId: string) => {
+  const participants = await prisma.participant.findMany({
+    where: { eventId },
+    include: {
+      user: true,
+      event:true,
+      
+    },
+  });
+  return participants;
+};
 export const ParticipationService = {
   joinEvent,
+  getAllParticipantFromDb,
 };

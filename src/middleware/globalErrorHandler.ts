@@ -7,6 +7,8 @@ export const globalErrorHandler = (
   res: Response,
   next: NextFunction
 ) => {
+  console.error("Global Error:", error);
+
   let statusCode = 500;
   let message = "Something went wrong";
 

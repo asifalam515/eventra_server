@@ -8,5 +8,10 @@ router.post(
   auth(UserRole.admin, UserRole.user),
   ParticipationController.joinEvent,
 );
+router.get(
+  "/:eventId",
+  auth(UserRole.admin, UserRole.user),
+  ParticipationController.getAllParticipants,
+);
 
 export const ParticipationRouter = router;

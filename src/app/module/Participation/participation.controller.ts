@@ -29,6 +29,23 @@ const joinEvent = async (req: Request, res: Response) => {
   }
 };
 
+const getAllParticipants = async (req: Request, res: Response) => {
+  try {
+    const { eventId } = req.params;
+    const participants = await ParticipationService.getAllParticipantFromDb(eventId as string);
+    res.status(200).json({
+      success: true,
+      message: "Participants fetched successfully For that Paritcular Event",
+      data: participants,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch participants",
+    });
+  }
+}
 export const ParticipationController = {
   joinEvent,
+  getAllParticipants
 };
