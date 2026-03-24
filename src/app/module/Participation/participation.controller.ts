@@ -45,7 +45,24 @@ const getAllParticipants = async (req: Request, res: Response) => {
     });
   }
 }
+const updateParticipationStatus = async (req: Request, res: Response) => {
+  try {
+    const { eventId, userId, status } = req.body;
+    const updatedParticipation = await ParticipationService.updateParticipationStatus(eventId, userId, status);
+    res.status(200).json({
+      success: true,
+      message: "Participation status updated successfully",
+      data: updatedParticipation,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to update participation status",
+    });
+  }
+}
 export const ParticipationController = {
   joinEvent,
-  getAllParticipants
+  getAllParticipants,
+  updateParticipationStatus
 };
