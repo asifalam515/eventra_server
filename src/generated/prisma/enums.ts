@@ -35,6 +35,16 @@ export const EventType = {
 export type EventType = (typeof EventType)[keyof typeof EventType]
 
 
+export const EventStatus = {
+  AVAILABLE: 'AVAILABLE',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED'
+} as const
+
+export type EventStatus = (typeof EventStatus)[keyof typeof EventStatus]
+
+
 export const ParticipationStatus = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
