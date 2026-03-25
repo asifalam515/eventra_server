@@ -71,3 +71,30 @@ export const PaymentStatus = {
 } as const
 
 export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus]
+
+
+export const LogAction = {
+  DELETE_EVENT: 'DELETE_EVENT',
+  DELETE_REVIEW: 'DELETE_REVIEW',
+  BAN_USER: 'BAN_USER',
+  UPDATE_ROLE: 'UPDATE_ROLE'
+} as const
+
+export type LogAction = (typeof LogAction)[keyof typeof LogAction]
+
+
+export const ReportTargetType = {
+  EVENT: 'EVENT',
+  REVIEW: 'REVIEW'
+} as const
+
+export type ReportTargetType = (typeof ReportTargetType)[keyof typeof ReportTargetType]
+
+
+export const ReportStatus = {
+  PENDING: 'PENDING',
+  RESOLVED: 'RESOLVED',
+  DISMISSED: 'DISMISSED'
+} as const
+
+export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus]

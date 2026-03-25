@@ -55,7 +55,24 @@ enum PaymentStatus {
   UNPAID
   PAID
   FAILED
-  
+}
+
+enum LogAction {
+  DELETE_EVENT
+  DELETE_REVIEW
+  BAN_USER
+  UPDATE_ROLE
+}
+
+enum ReportTargetType {
+  EVENT
+  REVIEW
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
 }
 
 //
@@ -75,10 +92,12 @@ model User {
 
   // Relations
   events        Event[]          @relation("EventCreator")
-  payments Payment[]
+  payments      Payment[]
   participations Participant[]
   invitations   Invitation[]
   reviews       Review[]
+  activityLogs  ActivityLog[]    @relation("AdminLogs")
+  reports       Report[]         @relation("UserReports")
 }
 
 //
@@ -189,4 +208,38 @@ model Payment {
 
   user          User  @relation(fields: [userId], references: [id])
   event         Event @relation(fields: [eventId], references: [id])
+}
+
+//
+// 📜 ACTIVITY LOG (ADMIN TRACKING)
+//
+
+model ActivityLog {
+  id          String    @id @default(uuid())
+  action      LogAction
+  targetId    String
+  details     String?
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  adminId     String
+  admin       User      @relation("AdminLogs", fields: [adminId], references: [id])
+}
+
+//
+// 🚩 REPORT SYSTEM
+//
+
+model Report {
+  id          String           @id @default(uuid())
+  targetType  ReportTargetType
+  targetId    String
+  reason      String
+  status      ReportStatus     @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // Relations
+  reporterId  String
+  reporter    User             @relation("UserReports", fields: [reporterId], references: [id])
 }

@@ -7,37 +7,25 @@ const getAllUsers = async (filters: any, pagination: any) => {
   const { search, role } = filters;
 
   const whereClause: any = {};
-
   if (search) {
     whereClause.OR = [
       { name: { contains: search, mode: "insensitive" } },
       { email: { contains: search, mode: "insensitive" } }
     ];
   }
-  
-  if (role) {
-    whereClause.role = role;
-  }
+  if (role) whereClause.role = role;
 
   const users = await prisma.user.findMany({
     where: whereClause,
     skip: (page - 1) * limit,
     take: limit,
     select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      status: true,
-      createdAt: true,
-      _count: {
-        select: { events: true, participations: true, payments: true }
-      }
+      id: true, name: true, email: true, role: true, status: true, createdAt: true,
+      _count: { select: { events: true, participations: true, payments: true } }
     }
   });
 
   const total = await prisma.user.count({ where: whereClause });
-
   return { users, total, page, limit };
 };
 
@@ -56,14 +44,36 @@ const getSingleUser = async (id: string) => {
   return user;
 };
 
-const updateUserStatus = async (id: string, status: string) => {
+const updateUserStatus = async (id: string, status: string, adminId: string) => {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) throw new AppError(404, "User not found");
 
-  return await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { id },
     data: { status: status as any }
   });
+
+  if (status === "BLOCKED") {
+    await prisma.activityLog.create({
+      data: { action: "BAN_USER", targetId: id, adminId, details: `Banned user ${user.email}` }
+    });
+  }
+  return updatedUser;
+};
+
+const updateUserRole = async (id: string, role: string, adminId: string) => {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new AppError(404, "User not found");
+
+  const updatedUser = await prisma.user.update({
+    where: { id },
+    data: { role: role as any }
+  });
+
+  await prisma.activityLog.create({
+    data: { action: "UPDATE_ROLE", targetId: id, details: `Changed role to ${role}`, adminId }
+  });
+  return updatedUser;
 };
 
 // 2. Event & Review Management
@@ -72,10 +82,7 @@ const getAllEvents = async (filters: any, pagination: any) => {
   const { search, type, isFeatured } = filters;
 
   const whereClause: any = {};
-
-  if (search) {
-    whereClause.title = { contains: search, mode: "insensitive" };
-  }
+  if (search) whereClause.title = { contains: search, mode: "insensitive" };
   if (type) whereClause.type = type;
   if (isFeatured !== undefined) whereClause.isFeatured = isFeatured === 'true';
 
@@ -87,7 +94,6 @@ const getAllEvents = async (filters: any, pagination: any) => {
   });
 
   const total = await prisma.event.count({ where: whereClause });
-
   return { events, total, page, limit };
 };
 
@@ -105,11 +111,15 @@ const getSingleEvent = async (id: string) => {
   return event;
 };
 
-const deleteEvent = async (id: string) => {
+const deleteEvent = async (id: string, adminId: string) => {
   const event = await prisma.event.findUnique({ where: { id } });
   if (!event) throw new AppError(404, "Event not found");
 
   await prisma.event.delete({ where: { id } });
+  
+  await prisma.activityLog.create({
+    data: { action: "DELETE_EVENT", targetId: id, adminId }
+  });
   return true;
 };
 
@@ -123,13 +133,12 @@ const toggleEventFeature = async (id: string, isFeatured: boolean) => {
   });
 };
 
-const deleteReview = async (id: string) => {
+const deleteReview = async (id: string, adminId: string) => {
   const review = await prisma.review.findUnique({ where: { id } });
   if (!review) throw new AppError(404, "Review not found");
 
   await prisma.review.delete({ where: { id } });
 
-  // Update average rating
   const result = await prisma.review.aggregate({
     _avg: { rating: true },
     _count: { id: true },
@@ -144,10 +153,13 @@ const deleteReview = async (id: string) => {
     },
   });
 
+  await prisma.activityLog.create({
+    data: { action: "DELETE_REVIEW", targetId: id, adminId }
+  });
   return true;
 };
 
-// 3. Analytics
+// 3. Analytics & Logs
 const getDashboardAnalytics = async () => {
   const totalUsers = await prisma.user.count();
   const totalEvents = await prisma.event.count();
@@ -160,22 +172,54 @@ const getDashboardAnalytics = async () => {
   });
 
   return {
-    totalUsers,
-    totalEvents,
-    totalReviews,
-    totalParticipations,
+    totalUsers, totalEvents, totalReviews, totalParticipations,
     totalRevenue: paymentAgg._sum.amount || 0
   };
 };
 
+const getActivityLogs = async (pagination: any) => {
+  const { page, limit } = pagination;
+  const logs = await prisma.activityLog.findMany({
+    skip: (page - 1) * limit, take: limit,
+    orderBy: { createdAt: 'desc' },
+    include: { admin: { select: { id: true, name: true, email: true } } }
+  });
+  const total = await prisma.activityLog.count();
+  return { logs, total, page, limit };
+};
+
+// 4. Reports Moderation
+const getAllReports = async (filters: any, pagination: any) => {
+  const { page, limit } = pagination;
+  const { status, targetType } = filters;
+
+  const whereClause: any = {};
+  if (status) whereClause.status = status;
+  if (targetType) whereClause.targetType = targetType;
+
+  const reports = await prisma.report.findMany({
+    where: whereClause,
+    skip: (page - 1) * limit, take: limit,
+    orderBy: { createdAt: 'desc' },
+    include: { reporter: { select: { id: true, name: true, email: true } } }
+  });
+  const total = await prisma.report.count({ where: whereClause });
+  return { reports, total, page, limit };
+};
+
+const updateReportStatus = async (id: string, status: string) => {
+  const report = await prisma.report.findUnique({ where: { id } });
+  if (!report) throw new AppError(404, "Report not found");
+
+  return await prisma.report.update({
+    where: { id },
+    data: { status: status as any }
+  });
+};
+
 export const AdminService = {
-  getAllUsers,
-  getSingleUser,
-  updateUserStatus,
-  getAllEvents,
-  getSingleEvent,
-  deleteEvent,
-  toggleEventFeature,
-  deleteReview,
-  getDashboardAnalytics
+  getAllUsers, getSingleUser, updateUserStatus, updateUserRole,
+  getAllEvents, getSingleEvent, deleteEvent, toggleEventFeature,
+  deleteReview, getDashboardAnalytics, getActivityLogs,
+  getAllReports, updateReportStatus
 };
