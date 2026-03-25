@@ -11,6 +11,7 @@ import { ReviewRouter } from "./app/module/Review/review.router";
 import { userRouter } from "./app/module/User/user.router";
 import { globalErrorHandler } from "./middleware/globalErrorHandler";
 import { notFound } from "./middleware/notFound";
+import { AdminRouter } from "./app/module/Admin/admin.router";
 const app: Application = express();
 const port = 5000; // The port your express server will be running on.
 
@@ -33,6 +34,7 @@ app.use("/api/v1/participation", ParticipationRouter);
 app.use("/api/v1/payment", PaymentRoute);
 app.use("/api/v1/invitation", InvitationRouter);
 app.use("/api/v1/review", ReviewRouter);
+app.use("/api/v1/admin", AdminRouter);
 app.use(notFound);
 app.use(globalErrorHandler);
 // Basic route
