@@ -1,4 +1,4 @@
-import { PaymentStatus } from "@prisma/client";
+import { PaymentStatus, ParticipationStatus } from "../../../generated/prisma/enums";
 import { prisma } from "../../../lib/prisma";
 import { UserRole } from "../../../middleware/auth";
 
@@ -24,7 +24,7 @@ const joinEvent = async (userId: string, eventId: string) => {
   // 3. Determine Payment Status
   // If fee > 0, status is UNPAID. If fee is 0, status is PAID.
   const isPaidEvent = event.fee > 0;
-  const paymentStatus = isPaidEvent ? PaymentStatus.UNPAID : PaymentStatus.PAID;
+  const paymentStatus = (isPaidEvent ? "UNPAID" : "PAID") as PaymentStatus;
 
   // 4. Create the record
   const participation = await prisma.participant.create({
@@ -58,25 +58,76 @@ const getAllParticipantFromDb = async (eventId: string) => {
   });
   return participants;
 };
-const updateParticipationStatus = async (eventId: string, userId: string, status: string) => {
- const user = await prisma.user.findUnique({
-  where: { id: userId },
- });
- const event = await prisma.event.findUnique({
-  where: { id: eventId },
- });
- if (!user) {
-  throw new Error("User not found");
- }
- if(user.role !== UserRole.admin && user.id !== event?.creatorId) {
-  throw new Error("You are not authorized to update participation status");
- }
- const updatedParticipation = await prisma.participant.update({  
-    where: { userId_eventId: { userId, eventId } },
-    data: { payment: status },  
+const updateParticipationStatus = async (
+  requesterId: string,
+  eventId: string,
+  targetUserId: string,
+  status: string
+) => {
+  const requester = await prisma.user.findUnique({
+    where: { id: requesterId },
   });
-  return updatedParticipation;
+
+  if (!requester) {
+    throw new Error("Requester not found");
+  }
+
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+  });
+
+  if (!event) {
+    throw new Error("Event not found");
+  }
+
+  // Check if admin or event owner
+  if (
+    requester.role !== UserRole.admin &&
+    requester.id !== event.creatorId
+  ) {
+    throw new Error("You are not authorized to update participation status");
+  }
+
+  // Target participant must exist
+  const targetParticipant = await prisma.participant.findUnique({
+    where: {
+      userId_eventId: { userId: targetUserId, eventId }
+    }
+  });
+
+  if (!targetParticipant) {
+    throw new Error("Participant not found in this event");
+  }
+
+  // validate correct enum
+  if (
+    !Object.values(ParticipationStatus).includes(
+      status as ParticipationStatus
+    )
+  ) {
+    throw new Error("Invalid participation status");
+  }
+
+  // payment logic: if status is going to be APPROVED, payment MUST be PAID.
+  if (status === ParticipationStatus.APPROVED && targetParticipant.payment !== PaymentStatus.PAID) {
+    throw new Error("Cannot approve participation. Payment must be PAID first.");
+  }
+
+  try {
+    const updatedParticipation = await prisma.participant.update({
+      where: {
+        userId_eventId: { userId: targetUserId, eventId },
+      },
+      data: { status: status as ParticipationStatus },
+    });
+
+    return updatedParticipation;
+  } catch (error: any) {
+    console.error("Prisma update error:", error);
+    throw new Error(`Failed to update: ${error.message}`);
+  }
 };
+
 export const ParticipationService = {
   joinEvent,
   getAllParticipantFromDb,

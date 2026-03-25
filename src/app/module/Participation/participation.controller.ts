@@ -47,8 +47,9 @@ const getAllParticipants = async (req: Request, res: Response) => {
 }
 const updateParticipationStatus = async (req: Request, res: Response) => {
   try {
+    const requesterId = req.user?.id as string;
     const { eventId, userId, status } = req.body;
-    const updatedParticipation = await ParticipationService.updateParticipationStatus(eventId, userId, status);
+    const updatedParticipation = await ParticipationService.updateParticipationStatus(requesterId, eventId, userId, status );
     res.status(200).json({
       success: true,
       message: "Participation status updated successfully",
@@ -61,8 +62,9 @@ const updateParticipationStatus = async (req: Request, res: Response) => {
     });
   }
 }
+
 export const ParticipationController = {
   joinEvent,
   getAllParticipants,
-  updateParticipationStatus
+  updateParticipationStatus,
 };
