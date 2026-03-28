@@ -77,8 +77,39 @@ const handleStripeWebhook = async (event) => {
         });
     }
 };
+const confirmPayment = async (transactionId) => {
+    const paymentIntent = await stripe.paymentIntents.confirm(transactionId, {
+        payment_method: "pm_card_visa",
+        return_url: "http://localhost:5000",
+    });
+    if (paymentIntent.status === "succeeded" ||
+        paymentIntent.status === "requires_action" ||
+        paymentIntent.status === "processing") {
+        const payment = await prisma.payment.findUnique({ where: { transactionId } });
+        if (!payment) {
+            throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
+        }
+        await prisma.payment.update({
+            where: { transactionId },
+            data: { status: "PAID" },
+        });
+        await prisma.participant.updateMany({
+            where: { userId: payment.userId, eventId: payment.eventId },
+            data: { payment: "PAID" },
+        });
+        await prisma.invitation.updateMany({
+            where: { userId: payment.userId, eventId: payment.eventId },
+            data: { payment: "PAID" },
+        });
+        return { status: "PAID" };
+    }
+    else {
+        throw new AppError(httpStatus.BAD_REQUEST, "Payment confirmation failed");
+    }
+};
 export const PaymentService = {
     createPaymentIntent,
     handleStripeWebhook,
+    confirmPayment,
 };
 //# sourceMappingURL=payment.service.js.map

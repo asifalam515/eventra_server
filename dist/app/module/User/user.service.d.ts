@@ -1,8 +1,8 @@
 export declare const UserService: {
     updateUserProfile: (userId: string, payload: any) => Promise<{
-        name: string;
         id: string;
         email: string;
+        name: string;
         password: string;
         status: import("../../../generated/prisma/enums").Status;
         photo: string | null;
@@ -11,9 +11,9 @@ export declare const UserService: {
         updatedAt: Date;
     }>;
     getUserById: (id: string) => Promise<{
-        name: string;
         id: string;
         email: string;
+        name: string;
         password: string;
         status: import("../../../generated/prisma/enums").Status;
         photo: string | null;

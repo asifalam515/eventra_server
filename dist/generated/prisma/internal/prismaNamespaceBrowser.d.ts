@@ -32,6 +32,8 @@ export declare const ModelName: {
     readonly Invitation: "Invitation";
     readonly Review: "Review";
     readonly Payment: "Payment";
+    readonly ActivityLog: "ActivityLog";
+    readonly Report: "Report";
 };
 export type ModelName = (typeof ModelName)[keyof typeof ModelName];
 export declare const TransactionIsolationLevel: {
@@ -61,8 +63,11 @@ export declare const EventScalarFieldEnum: {
     readonly time: "time";
     readonly venue: "venue";
     readonly type: "type";
+    readonly eventStatus: "eventStatus";
     readonly fee: "fee";
     readonly isFeatured: "isFeatured";
+    readonly averageRating: "averageRating";
+    readonly reviewCount: "reviewCount";
     readonly createdAt: "createdAt";
     readonly updatedAt: "updatedAt";
     readonly creatorId: "creatorId";
@@ -106,6 +111,26 @@ export declare const PaymentScalarFieldEnum: {
     readonly eventId: "eventId";
 };
 export type PaymentScalarFieldEnum = (typeof PaymentScalarFieldEnum)[keyof typeof PaymentScalarFieldEnum];
+export declare const ActivityLogScalarFieldEnum: {
+    readonly id: "id";
+    readonly action: "action";
+    readonly targetId: "targetId";
+    readonly details: "details";
+    readonly createdAt: "createdAt";
+    readonly adminId: "adminId";
+};
+export type ActivityLogScalarFieldEnum = (typeof ActivityLogScalarFieldEnum)[keyof typeof ActivityLogScalarFieldEnum];
+export declare const ReportScalarFieldEnum: {
+    readonly id: "id";
+    readonly targetType: "targetType";
+    readonly targetId: "targetId";
+    readonly reason: "reason";
+    readonly status: "status";
+    readonly createdAt: "createdAt";
+    readonly updatedAt: "updatedAt";
+    readonly reporterId: "reporterId";
+};
+export type ReportScalarFieldEnum = (typeof ReportScalarFieldEnum)[keyof typeof ReportScalarFieldEnum];
 export declare const SortOrder: {
     readonly asc: "asc";
     readonly desc: "desc";

@@ -9,8 +9,11 @@ export declare const EventService: {
         time: string;
         venue: string;
         type: import("../../../generated/prisma/enums").EventType;
+        eventStatus: import("../../../generated/prisma/enums").EventStatus;
         fee: number;
         isFeatured: boolean;
+        averageRating: number;
+        reviewCount: number;
         creatorId: string;
     }>;
     getAllEvents: (filters: any, pagination: any) => Promise<{
@@ -23,8 +26,11 @@ export declare const EventService: {
         time: string;
         venue: string;
         type: import("../../../generated/prisma/enums").EventType;
+        eventStatus: import("../../../generated/prisma/enums").EventStatus;
         fee: number;
         isFeatured: boolean;
+        averageRating: number;
+        reviewCount: number;
         creatorId: string;
     }[]>;
     getEventById: (id: string) => Promise<{
@@ -37,8 +43,11 @@ export declare const EventService: {
         time: string;
         venue: string;
         type: import("../../../generated/prisma/enums").EventType;
+        eventStatus: import("../../../generated/prisma/enums").EventStatus;
         fee: number;
         isFeatured: boolean;
+        averageRating: number;
+        reviewCount: number;
         creatorId: string;
     }>;
     updateEventById: (id: string, payload: any) => Promise<{
@@ -51,8 +60,11 @@ export declare const EventService: {
         time: string;
         venue: string;
         type: import("../../../generated/prisma/enums").EventType;
+        eventStatus: import("../../../generated/prisma/enums").EventStatus;
         fee: number;
         isFeatured: boolean;
+        averageRating: number;
+        reviewCount: number;
         creatorId: string;
     }>;
     deleteEventById: (id: string) => Promise<void>;

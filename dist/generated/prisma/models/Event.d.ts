@@ -15,9 +15,13 @@ export type AggregateEvent = {
 };
 export type EventAvgAggregateOutputType = {
     fee: number | null;
+    averageRating: number | null;
+    reviewCount: number | null;
 };
 export type EventSumAggregateOutputType = {
     fee: number | null;
+    averageRating: number | null;
+    reviewCount: number | null;
 };
 export type EventMinAggregateOutputType = {
     id: string | null;
@@ -27,8 +31,11 @@ export type EventMinAggregateOutputType = {
     time: string | null;
     venue: string | null;
     type: $Enums.EventType | null;
+    eventStatus: $Enums.EventStatus | null;
     fee: number | null;
     isFeatured: boolean | null;
+    averageRating: number | null;
+    reviewCount: number | null;
     createdAt: Date | null;
     updatedAt: Date | null;
     creatorId: string | null;
@@ -41,8 +48,11 @@ export type EventMaxAggregateOutputType = {
     time: string | null;
     venue: string | null;
     type: $Enums.EventType | null;
+    eventStatus: $Enums.EventStatus | null;
     fee: number | null;
     isFeatured: boolean | null;
+    averageRating: number | null;
+    reviewCount: number | null;
     createdAt: Date | null;
     updatedAt: Date | null;
     creatorId: string | null;
@@ -55,8 +65,11 @@ export type EventCountAggregateOutputType = {
     time: number;
     venue: number;
     type: number;
+    eventStatus: number;
     fee: number;
     isFeatured: number;
+    averageRating: number;
+    reviewCount: number;
     createdAt: number;
     updatedAt: number;
     creatorId: number;
@@ -64,9 +77,13 @@ export type EventCountAggregateOutputType = {
 };
 export type EventAvgAggregateInputType = {
     fee?: true;
+    averageRating?: true;
+    reviewCount?: true;
 };
 export type EventSumAggregateInputType = {
     fee?: true;
+    averageRating?: true;
+    reviewCount?: true;
 };
 export type EventMinAggregateInputType = {
     id?: true;
@@ -76,8 +93,11 @@ export type EventMinAggregateInputType = {
     time?: true;
     venue?: true;
     type?: true;
+    eventStatus?: true;
     fee?: true;
     isFeatured?: true;
+    averageRating?: true;
+    reviewCount?: true;
     createdAt?: true;
     updatedAt?: true;
     creatorId?: true;
@@ -90,8 +110,11 @@ export type EventMaxAggregateInputType = {
     time?: true;
     venue?: true;
     type?: true;
+    eventStatus?: true;
     fee?: true;
     isFeatured?: true;
+    averageRating?: true;
+    reviewCount?: true;
     createdAt?: true;
     updatedAt?: true;
     creatorId?: true;
@@ -104,8 +127,11 @@ export type EventCountAggregateInputType = {
     time?: true;
     venue?: true;
     type?: true;
+    eventStatus?: true;
     fee?: true;
     isFeatured?: true;
+    averageRating?: true;
+    reviewCount?: true;
     createdAt?: true;
     updatedAt?: true;
     creatorId?: true;
@@ -195,8 +221,11 @@ export type EventGroupByOutputType = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus: $Enums.EventStatus;
     fee: number;
     isFeatured: boolean;
+    averageRating: number;
+    reviewCount: number;
     createdAt: Date;
     updatedAt: Date;
     creatorId: string;
@@ -220,8 +249,11 @@ export type EventWhereInput = {
     time?: Prisma.StringFilter<"Event"> | string;
     venue?: Prisma.StringFilter<"Event"> | string;
     type?: Prisma.EnumEventTypeFilter<"Event"> | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFilter<"Event"> | $Enums.EventStatus;
     fee?: Prisma.FloatFilter<"Event"> | number;
     isFeatured?: Prisma.BoolFilter<"Event"> | boolean;
+    averageRating?: Prisma.FloatFilter<"Event"> | number;
+    reviewCount?: Prisma.IntFilter<"Event"> | number;
     createdAt?: Prisma.DateTimeFilter<"Event"> | Date | string;
     updatedAt?: Prisma.DateTimeFilter<"Event"> | Date | string;
     creatorId?: Prisma.StringFilter<"Event"> | string;
@@ -239,8 +271,11 @@ export type EventOrderByWithRelationInput = {
     time?: Prisma.SortOrder;
     venue?: Prisma.SortOrder;
     type?: Prisma.SortOrder;
+    eventStatus?: Prisma.SortOrder;
     fee?: Prisma.SortOrder;
     isFeatured?: Prisma.SortOrder;
+    averageRating?: Prisma.SortOrder;
+    reviewCount?: Prisma.SortOrder;
     createdAt?: Prisma.SortOrder;
     updatedAt?: Prisma.SortOrder;
     creatorId?: Prisma.SortOrder;
@@ -261,8 +296,11 @@ export type EventWhereUniqueInput = Prisma.AtLeast<{
     time?: Prisma.StringFilter<"Event"> | string;
     venue?: Prisma.StringFilter<"Event"> | string;
     type?: Prisma.EnumEventTypeFilter<"Event"> | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFilter<"Event"> | $Enums.EventStatus;
     fee?: Prisma.FloatFilter<"Event"> | number;
     isFeatured?: Prisma.BoolFilter<"Event"> | boolean;
+    averageRating?: Prisma.FloatFilter<"Event"> | number;
+    reviewCount?: Prisma.IntFilter<"Event"> | number;
     createdAt?: Prisma.DateTimeFilter<"Event"> | Date | string;
     updatedAt?: Prisma.DateTimeFilter<"Event"> | Date | string;
     creatorId?: Prisma.StringFilter<"Event"> | string;
@@ -280,8 +318,11 @@ export type EventOrderByWithAggregationInput = {
     time?: Prisma.SortOrder;
     venue?: Prisma.SortOrder;
     type?: Prisma.SortOrder;
+    eventStatus?: Prisma.SortOrder;
     fee?: Prisma.SortOrder;
     isFeatured?: Prisma.SortOrder;
+    averageRating?: Prisma.SortOrder;
+    reviewCount?: Prisma.SortOrder;
     createdAt?: Prisma.SortOrder;
     updatedAt?: Prisma.SortOrder;
     creatorId?: Prisma.SortOrder;
@@ -302,8 +343,11 @@ export type EventScalarWhereWithAggregatesInput = {
     time?: Prisma.StringWithAggregatesFilter<"Event"> | string;
     venue?: Prisma.StringWithAggregatesFilter<"Event"> | string;
     type?: Prisma.EnumEventTypeWithAggregatesFilter<"Event"> | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusWithAggregatesFilter<"Event"> | $Enums.EventStatus;
     fee?: Prisma.FloatWithAggregatesFilter<"Event"> | number;
     isFeatured?: Prisma.BoolWithAggregatesFilter<"Event"> | boolean;
+    averageRating?: Prisma.FloatWithAggregatesFilter<"Event"> | number;
+    reviewCount?: Prisma.IntWithAggregatesFilter<"Event"> | number;
     createdAt?: Prisma.DateTimeWithAggregatesFilter<"Event"> | Date | string;
     updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Event"> | Date | string;
     creatorId?: Prisma.StringWithAggregatesFilter<"Event"> | string;
@@ -316,8 +360,11 @@ export type EventCreateInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     payments?: Prisma.PaymentCreateNestedManyWithoutEventInput;
@@ -334,8 +381,11 @@ export type EventUncheckedCreateInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     creatorId: string;
@@ -352,8 +402,11 @@ export type EventUpdateInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     payments?: Prisma.PaymentUpdateManyWithoutEventNestedInput;
@@ -370,8 +423,11 @@ export type EventUncheckedUpdateInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     creatorId?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -388,8 +444,11 @@ export type EventCreateManyInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     creatorId: string;
@@ -402,8 +461,11 @@ export type EventUpdateManyMutationInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
 };
@@ -415,8 +477,11 @@ export type EventUncheckedUpdateManyInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     creatorId?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -437,14 +502,19 @@ export type EventCountOrderByAggregateInput = {
     time?: Prisma.SortOrder;
     venue?: Prisma.SortOrder;
     type?: Prisma.SortOrder;
+    eventStatus?: Prisma.SortOrder;
     fee?: Prisma.SortOrder;
     isFeatured?: Prisma.SortOrder;
+    averageRating?: Prisma.SortOrder;
+    reviewCount?: Prisma.SortOrder;
     createdAt?: Prisma.SortOrder;
     updatedAt?: Prisma.SortOrder;
     creatorId?: Prisma.SortOrder;
 };
 export type EventAvgOrderByAggregateInput = {
     fee?: Prisma.SortOrder;
+    averageRating?: Prisma.SortOrder;
+    reviewCount?: Prisma.SortOrder;
 };
 export type EventMaxOrderByAggregateInput = {
     id?: Prisma.SortOrder;
@@ -454,8 +524,11 @@ export type EventMaxOrderByAggregateInput = {
     time?: Prisma.SortOrder;
     venue?: Prisma.SortOrder;
     type?: Prisma.SortOrder;
+    eventStatus?: Prisma.SortOrder;
     fee?: Prisma.SortOrder;
     isFeatured?: Prisma.SortOrder;
+    averageRating?: Prisma.SortOrder;
+    reviewCount?: Prisma.SortOrder;
     createdAt?: Prisma.SortOrder;
     updatedAt?: Prisma.SortOrder;
     creatorId?: Prisma.SortOrder;
@@ -468,14 +541,19 @@ export type EventMinOrderByAggregateInput = {
     time?: Prisma.SortOrder;
     venue?: Prisma.SortOrder;
     type?: Prisma.SortOrder;
+    eventStatus?: Prisma.SortOrder;
     fee?: Prisma.SortOrder;
     isFeatured?: Prisma.SortOrder;
+    averageRating?: Prisma.SortOrder;
+    reviewCount?: Prisma.SortOrder;
     createdAt?: Prisma.SortOrder;
     updatedAt?: Prisma.SortOrder;
     creatorId?: Prisma.SortOrder;
 };
 export type EventSumOrderByAggregateInput = {
     fee?: Prisma.SortOrder;
+    averageRating?: Prisma.SortOrder;
+    reviewCount?: Prisma.SortOrder;
 };
 export type EventScalarRelationFilter = {
     is?: Prisma.EventWhereInput;
@@ -522,6 +600,9 @@ export type EventUncheckedUpdateManyWithoutCreatorNestedInput = {
 export type EnumEventTypeFieldUpdateOperationsInput = {
     set?: $Enums.EventType;
 };
+export type EnumEventStatusFieldUpdateOperationsInput = {
+    set?: $Enums.EventStatus;
+};
 export type FloatFieldUpdateOperationsInput = {
     set?: number;
     increment?: number;
@@ -531,6 +612,13 @@ export type FloatFieldUpdateOperationsInput = {
 };
 export type BoolFieldUpdateOperationsInput = {
     set?: boolean;
+};
+export type IntFieldUpdateOperationsInput = {
+    set?: number;
+    increment?: number;
+    decrement?: number;
+    multiply?: number;
+    divide?: number;
 };
 export type EventCreateNestedOneWithoutParticipantsInput = {
     create?: Prisma.XOR<Prisma.EventCreateWithoutParticipantsInput, Prisma.EventUncheckedCreateWithoutParticipantsInput>;
@@ -588,8 +676,11 @@ export type EventCreateWithoutCreatorInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     payments?: Prisma.PaymentCreateNestedManyWithoutEventInput;
@@ -605,8 +696,11 @@ export type EventUncheckedCreateWithoutCreatorInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutEventInput;
@@ -646,8 +740,11 @@ export type EventScalarWhereInput = {
     time?: Prisma.StringFilter<"Event"> | string;
     venue?: Prisma.StringFilter<"Event"> | string;
     type?: Prisma.EnumEventTypeFilter<"Event"> | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFilter<"Event"> | $Enums.EventStatus;
     fee?: Prisma.FloatFilter<"Event"> | number;
     isFeatured?: Prisma.BoolFilter<"Event"> | boolean;
+    averageRating?: Prisma.FloatFilter<"Event"> | number;
+    reviewCount?: Prisma.IntFilter<"Event"> | number;
     createdAt?: Prisma.DateTimeFilter<"Event"> | Date | string;
     updatedAt?: Prisma.DateTimeFilter<"Event"> | Date | string;
     creatorId?: Prisma.StringFilter<"Event"> | string;
@@ -660,8 +757,11 @@ export type EventCreateWithoutParticipantsInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     payments?: Prisma.PaymentCreateNestedManyWithoutEventInput;
@@ -677,8 +777,11 @@ export type EventUncheckedCreateWithoutParticipantsInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     creatorId: string;
@@ -707,8 +810,11 @@ export type EventUpdateWithoutParticipantsInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     payments?: Prisma.PaymentUpdateManyWithoutEventNestedInput;
@@ -724,8 +830,11 @@ export type EventUncheckedUpdateWithoutParticipantsInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     creatorId?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -741,8 +850,11 @@ export type EventCreateWithoutInvitationsInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     payments?: Prisma.PaymentCreateNestedManyWithoutEventInput;
@@ -758,8 +870,11 @@ export type EventUncheckedCreateWithoutInvitationsInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     creatorId: string;
@@ -788,8 +903,11 @@ export type EventUpdateWithoutInvitationsInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     payments?: Prisma.PaymentUpdateManyWithoutEventNestedInput;
@@ -805,8 +923,11 @@ export type EventUncheckedUpdateWithoutInvitationsInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     creatorId?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -822,8 +943,11 @@ export type EventCreateWithoutReviewsInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     payments?: Prisma.PaymentCreateNestedManyWithoutEventInput;
@@ -839,8 +963,11 @@ export type EventUncheckedCreateWithoutReviewsInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     creatorId: string;
@@ -869,8 +996,11 @@ export type EventUpdateWithoutReviewsInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     payments?: Prisma.PaymentUpdateManyWithoutEventNestedInput;
@@ -886,8 +1016,11 @@ export type EventUncheckedUpdateWithoutReviewsInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     creatorId?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -903,8 +1036,11 @@ export type EventCreateWithoutPaymentsInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     creator: Prisma.UserCreateNestedOneWithoutEventsInput;
@@ -920,8 +1056,11 @@ export type EventUncheckedCreateWithoutPaymentsInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     creatorId: string;
@@ -950,8 +1089,11 @@ export type EventUpdateWithoutPaymentsInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     creator?: Prisma.UserUpdateOneRequiredWithoutEventsNestedInput;
@@ -967,8 +1109,11 @@ export type EventUncheckedUpdateWithoutPaymentsInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     creatorId?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -984,8 +1129,11 @@ export type EventCreateManyCreatorInput = {
     time: string;
     venue: string;
     type: $Enums.EventType;
+    eventStatus?: $Enums.EventStatus;
     fee?: number;
     isFeatured?: boolean;
+    averageRating?: number;
+    reviewCount?: number;
     createdAt?: Date | string;
     updatedAt?: Date | string;
 };
@@ -997,8 +1145,11 @@ export type EventUpdateWithoutCreatorInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     payments?: Prisma.PaymentUpdateManyWithoutEventNestedInput;
@@ -1014,8 +1165,11 @@ export type EventUncheckedUpdateWithoutCreatorInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     payments?: Prisma.PaymentUncheckedUpdateManyWithoutEventNestedInput;
@@ -1031,8 +1185,11 @@ export type EventUncheckedUpdateManyWithoutCreatorInput = {
     time?: Prisma.StringFieldUpdateOperationsInput | string;
     venue?: Prisma.StringFieldUpdateOperationsInput | string;
     type?: Prisma.EnumEventTypeFieldUpdateOperationsInput | $Enums.EventType;
+    eventStatus?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus;
     fee?: Prisma.FloatFieldUpdateOperationsInput | number;
     isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+    averageRating?: Prisma.FloatFieldUpdateOperationsInput | number;
+    reviewCount?: Prisma.IntFieldUpdateOperationsInput | number;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
 };
@@ -1092,8 +1249,11 @@ export type EventSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
     time?: boolean;
     venue?: boolean;
     type?: boolean;
+    eventStatus?: boolean;
     fee?: boolean;
     isFeatured?: boolean;
+    averageRating?: boolean;
+    reviewCount?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
     creatorId?: boolean;
@@ -1112,8 +1272,11 @@ export type EventSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
     time?: boolean;
     venue?: boolean;
     type?: boolean;
+    eventStatus?: boolean;
     fee?: boolean;
     isFeatured?: boolean;
+    averageRating?: boolean;
+    reviewCount?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
     creatorId?: boolean;
@@ -1127,8 +1290,11 @@ export type EventSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
     time?: boolean;
     venue?: boolean;
     type?: boolean;
+    eventStatus?: boolean;
     fee?: boolean;
     isFeatured?: boolean;
+    averageRating?: boolean;
+    reviewCount?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
     creatorId?: boolean;
@@ -1142,13 +1308,16 @@ export type EventSelectScalar = {
     time?: boolean;
     venue?: boolean;
     type?: boolean;
+    eventStatus?: boolean;
     fee?: boolean;
     isFeatured?: boolean;
+    averageRating?: boolean;
+    reviewCount?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
     creatorId?: boolean;
 };
-export type EventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "date" | "time" | "venue" | "type" | "fee" | "isFeatured" | "createdAt" | "updatedAt" | "creatorId", ExtArgs["result"]["event"]>;
+export type EventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "date" | "time" | "venue" | "type" | "eventStatus" | "fee" | "isFeatured" | "averageRating" | "reviewCount" | "createdAt" | "updatedAt" | "creatorId", ExtArgs["result"]["event"]>;
 export type EventInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     payments?: boolean | Prisma.Event$paymentsArgs<ExtArgs>;
     creator?: boolean | Prisma.UserDefaultArgs<ExtArgs>;
@@ -1180,8 +1349,11 @@ export type $EventPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
         time: string;
         venue: string;
         type: $Enums.EventType;
+        eventStatus: $Enums.EventStatus;
         fee: number;
         isFeatured: boolean;
+        averageRating: number;
+        reviewCount: number;
         createdAt: Date;
         updatedAt: Date;
         creatorId: string;
@@ -1551,8 +1723,11 @@ export interface EventFieldRefs {
     readonly time: Prisma.FieldRef<"Event", 'String'>;
     readonly venue: Prisma.FieldRef<"Event", 'String'>;
     readonly type: Prisma.FieldRef<"Event", 'EventType'>;
+    readonly eventStatus: Prisma.FieldRef<"Event", 'EventStatus'>;
     readonly fee: Prisma.FieldRef<"Event", 'Float'>;
     readonly isFeatured: Prisma.FieldRef<"Event", 'Boolean'>;
+    readonly averageRating: Prisma.FieldRef<"Event", 'Float'>;
+    readonly reviewCount: Prisma.FieldRef<"Event", 'Int'>;
     readonly createdAt: Prisma.FieldRef<"Event", 'DateTime'>;
     readonly updatedAt: Prisma.FieldRef<"Event", 'DateTime'>;
     readonly creatorId: Prisma.FieldRef<"Event", 'String'>;

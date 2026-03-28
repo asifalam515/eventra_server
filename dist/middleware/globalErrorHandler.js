@@ -1,5 +1,6 @@
 import { AppError } from "../app/errors/AppErrors";
 export const globalErrorHandler = (error, req, res, next) => {
+    console.error("Global Error:", error);
     let statusCode = 500;
     let message = "Something went wrong";
     // Custom AppError

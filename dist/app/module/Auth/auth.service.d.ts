@@ -3,9 +3,9 @@ import { User } from "../../../generated/prisma/client";
 export declare const secret: string | undefined;
 export declare const AuthService: {
     createUserIntoDB: (payload: User) => Promise<{
-        name: string;
         id: string;
         email: string;
+        name: string;
         password: string;
         status: import("../../../generated/prisma/enums").Status;
         photo: string | null;
@@ -16,9 +16,9 @@ export declare const AuthService: {
     loginUserIntoDB: (payload: User) => Promise<{
         token: string;
         user: {
-            name: string;
             id: string;
             email: string;
+            name: string;
             password: string;
             status: import("../../../generated/prisma/enums").Status;
             photo: string | null;

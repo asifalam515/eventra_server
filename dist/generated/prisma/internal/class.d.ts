@@ -181,6 +181,28 @@ export interface PrismaClient<in LogOpts extends Prisma.LogLevel = never, in out
     get payment(): Prisma.PaymentDelegate<ExtArgs, {
         omit: OmitOpts;
     }>;
+    /**
+     * `prisma.activityLog`: Exposes CRUD operations for the **ActivityLog** model.
+      * Example usage:
+      * ```ts
+      * // Fetch zero or more ActivityLogs
+      * const activityLogs = await prisma.activityLog.findMany()
+      * ```
+      */
+    get activityLog(): Prisma.ActivityLogDelegate<ExtArgs, {
+        omit: OmitOpts;
+    }>;
+    /**
+     * `prisma.report`: Exposes CRUD operations for the **Report** model.
+      * Example usage:
+      * ```ts
+      * // Fetch zero or more Reports
+      * const reports = await prisma.report.findMany()
+      * ```
+      */
+    get report(): Prisma.ReportDelegate<ExtArgs, {
+        omit: OmitOpts;
+    }>;
 }
 export declare function getPrismaClientClass(): PrismaClientConstructor;
 //# sourceMappingURL=class.d.ts.map

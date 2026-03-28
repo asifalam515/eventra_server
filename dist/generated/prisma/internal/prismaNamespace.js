@@ -72,7 +72,9 @@ export const ModelName = {
     Participant: 'Participant',
     Invitation: 'Invitation',
     Review: 'Review',
-    Payment: 'Payment'
+    Payment: 'Payment',
+    ActivityLog: 'ActivityLog',
+    Report: 'Report'
 };
 /**
  * Enums
@@ -102,8 +104,11 @@ export const EventScalarFieldEnum = {
     time: 'time',
     venue: 'venue',
     type: 'type',
+    eventStatus: 'eventStatus',
     fee: 'fee',
     isFeatured: 'isFeatured',
+    averageRating: 'averageRating',
+    reviewCount: 'reviewCount',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     creatorId: 'creatorId'
@@ -141,6 +146,24 @@ export const PaymentScalarFieldEnum = {
     createdAt: 'createdAt',
     userId: 'userId',
     eventId: 'eventId'
+};
+export const ActivityLogScalarFieldEnum = {
+    id: 'id',
+    action: 'action',
+    targetId: 'targetId',
+    details: 'details',
+    createdAt: 'createdAt',
+    adminId: 'adminId'
+};
+export const ReportScalarFieldEnum = {
+    id: 'id',
+    targetType: 'targetType',
+    targetId: 'targetId',
+    reason: 'reason',
+    status: 'status',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt',
+    reporterId: 'reporterId'
 };
 export const SortOrder = {
     asc: 'asc',

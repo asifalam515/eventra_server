@@ -5,5 +5,8 @@ export declare const PaymentService: {
         transactionId: string;
     }>;
     handleStripeWebhook: (event: Stripe.Event) => Promise<void>;
+    confirmPayment: (transactionId: string) => Promise<{
+        status: string;
+    }>;
 };
 //# sourceMappingURL=payment.service.d.ts.map

@@ -21,6 +21,12 @@ export const EventType = {
     PUBLIC: 'PUBLIC',
     PRIVATE: 'PRIVATE'
 };
+export const EventStatus = {
+    AVAILABLE: 'AVAILABLE',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED',
+    EXPIRED: 'EXPIRED'
+};
 export const ParticipationStatus = {
     PENDING: 'PENDING',
     APPROVED: 'APPROVED',
@@ -36,5 +42,20 @@ export const PaymentStatus = {
     UNPAID: 'UNPAID',
     PAID: 'PAID',
     FAILED: 'FAILED'
+};
+export const LogAction = {
+    DELETE_EVENT: 'DELETE_EVENT',
+    DELETE_REVIEW: 'DELETE_REVIEW',
+    BAN_USER: 'BAN_USER',
+    UPDATE_ROLE: 'UPDATE_ROLE'
+};
+export const ReportTargetType = {
+    EVENT: 'EVENT',
+    REVIEW: 'REVIEW'
+};
+export const ReportStatus = {
+    PENDING: 'PENDING',
+    RESOLVED: 'RESOLVED',
+    DISMISSED: 'DISMISSED'
 };
 //# sourceMappingURL=enums.js.map

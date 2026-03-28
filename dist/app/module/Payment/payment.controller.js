@@ -41,8 +41,22 @@ const stripeWebhook = async (req, res) => {
         res.status(500).send("Internal Server Error");
     }
 };
+const confirmPayment = catchAsync(async (req, res) => {
+    const { transactionId } = req.body;
+    if (!transactionId) {
+        throw new AppError(httpStatus.BAD_REQUEST, "transactionId is required");
+    }
+    const result = await PaymentService.confirmPayment(transactionId);
+    sendResponse(res, {
+        statusCode: httpStatus.OK,
+        success: true,
+        message: "Payment confirmed successfully",
+        data: result,
+    });
+});
 export const PaymentController = {
     createPaymentIntent,
     stripeWebhook,
+    confirmPayment,
 };
 //# sourceMappingURL=payment.controller.js.map

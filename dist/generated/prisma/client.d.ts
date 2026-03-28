@@ -51,4 +51,14 @@ export type Review = Prisma.ReviewModel;
  *
  */
 export type Payment = Prisma.PaymentModel;
+/**
+ * Model ActivityLog
+ *
+ */
+export type ActivityLog = Prisma.ActivityLogModel;
+/**
+ * Model Report
+ *
+ */
+export type Report = Prisma.ReportModel;
 //# sourceMappingURL=client.d.ts.map
