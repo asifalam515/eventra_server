@@ -4,6 +4,7 @@ import { EventController } from "./event.controller";
 
 const router = Router();
 router.get("/", EventController.getAllEvents);
+router.get("/upcoming", EventController.getUpcomingEvents);
 router.post(
   "/",
   auth(UserRole.user, UserRole.admin, UserRole.moderator),

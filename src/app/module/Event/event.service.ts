@@ -47,6 +47,23 @@ const getAllEvents = async (filters: any, pagination: any) => {
 
   return events;
 };
+const getUpcomingEvents = async (pagination: any) => {
+  const { page, limit } = pagination;
+
+  const events = await prisma.event.findMany({
+    where: {
+      date: {
+        gte: new Date(),
+      },
+      eventStatus: "AVAILABLE",
+    },
+    orderBy: [{ date: "asc" }, { createdAt: "desc" }],
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  return events;
+};
 //get event by id
 const getEventById = async (id: string) => {
   const event = await prisma.event.findUnique({
@@ -97,6 +114,7 @@ const deleteEventById = async (id: string) => {
 export const EventService = {
   createEventIntoDB,
   getAllEvents,
+  getUpcomingEvents,
   getEventById,
   updateEventById,
   deleteEventById,

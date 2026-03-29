@@ -46,6 +46,26 @@ const getAllEvents = async (req: Request, res: Response) => {
     });
   }
 };
+const getUpcomingEvents = async (req: Request, res: Response) => {
+  try {
+    const pagination = {
+      page: parseInt(req.query.page as string) || 1,
+      limit: parseInt(req.query.limit as string) || 10,
+    };
+    const result = await EventService.getUpcomingEvents(pagination);
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: "Upcoming events fetched successfully",
+    });
+  } catch (error: any) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 const getSingleEvent = async (req: Request, res: Response) => {
   const eventId = req.params.id as string;
   const event = await EventService.getEventById(eventId);
@@ -77,6 +97,7 @@ const deleteEvent = async (req: Request, res: Response) => {
 export const EventController = {
   createEvent,
   getAllEvents,
+  getUpcomingEvents,
   getSingleEvent,
   updateEvent,
   deleteEvent,
