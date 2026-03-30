@@ -1,9 +1,31 @@
-import { prisma } from "../../../lib/prisma";
-import { AppError } from "../../errors/AppErrors";
 import httpStatus from "http-status";
 import Stripe from "stripe";
+import { prisma } from "../../../lib/prisma";
+import { AppError } from "../../errors/AppErrors";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {});
+
+const markPaymentAsPaid = async (transactionId: string) => {
+  const payment = await prisma.payment.findUnique({ where: { transactionId } });
+  if (!payment) {
+    throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
+  }
+
+  await prisma.payment.update({
+    where: { transactionId },
+    data: { status: "PAID" },
+  });
+
+  await prisma.participant.updateMany({
+    where: { userId: payment.userId, eventId: payment.eventId },
+    data: { payment: "PAID" },
+  });
+
+  await prisma.invitation.updateMany({
+    where: { userId: payment.userId, eventId: payment.eventId },
+    data: { payment: "PAID" },
+  });
+};
 
 const createPaymentIntent = async (userEmail: string, eventId: string) => {
   // Check user and event
@@ -56,10 +78,14 @@ const handleStripeWebhook = async (event: Stripe.Event) => {
     const transactionId = paymentIntent.id;
 
     // Find the corresponding Payment record
-    const payment = await prisma.payment.findUnique({ where: { transactionId } });
+    const payment = await prisma.payment.findUnique({
+      where: { transactionId },
+    });
     if (!payment) {
-      console.error(`Payment record not found for transaction: ${transactionId}`);
-      return; 
+      console.error(
+        `Payment record not found for transaction: ${transactionId}`,
+      );
+      return;
     }
 
     // Update payment status to PAID
@@ -92,37 +118,58 @@ const handleStripeWebhook = async (event: Stripe.Event) => {
 };
 
 const confirmPayment = async (transactionId: string) => {
-  const paymentIntent = await stripe.paymentIntents.confirm(transactionId, {
-    payment_method: "pm_card_visa",
-    return_url: "http://localhost:5000",
-  });
+  const existingIntent = await stripe.paymentIntents.retrieve(transactionId);
+
+  if (
+    existingIntent.status === "succeeded" ||
+    existingIntent.status === "processing" ||
+    existingIntent.status === "requires_capture"
+  ) {
+    await markPaymentAsPaid(transactionId);
+    return {
+      status: "PAID",
+      paymentIntentStatus: existingIntent.status,
+      alreadyConfirmed: true,
+    };
+  }
+
+  if (existingIntent.status === "requires_action") {
+    return {
+      status: "PENDING_ACTION",
+      paymentIntentStatus: existingIntent.status,
+      clientSecret: existingIntent.client_secret,
+    };
+  }
+
+  if (existingIntent.status !== "requires_confirmation") {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Payment cannot be confirmed in current state: ${existingIntent.status}`,
+    );
+  }
+
+  const paymentIntent = await stripe.paymentIntents.confirm(transactionId);
 
   if (
     paymentIntent.status === "succeeded" ||
-    paymentIntent.status === "requires_action" ||
-    paymentIntent.status === "processing"
+    paymentIntent.status === "processing" ||
+    paymentIntent.status === "requires_capture"
   ) {
-    const payment = await prisma.payment.findUnique({ where: { transactionId } });
-    if (!payment) {
-      throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
-    }
+    await markPaymentAsPaid(transactionId);
 
-    await prisma.payment.update({
-      where: { transactionId },
-      data: { status: "PAID" },
-    });
+    return {
+      status: "PAID",
+      paymentIntentStatus: paymentIntent.status,
+      alreadyConfirmed: false,
+    };
+  }
 
-    await prisma.participant.updateMany({
-      where: { userId: payment.userId, eventId: payment.eventId },
-      data: { payment: "PAID" },
-    });
-
-    await prisma.invitation.updateMany({
-      where: { userId: payment.userId, eventId: payment.eventId },
-      data: { payment: "PAID" },
-    });
-
-    return { status: "PAID" };
+  if (paymentIntent.status === "requires_action") {
+    return {
+      status: "PENDING_ACTION",
+      paymentIntentStatus: paymentIntent.status,
+      clientSecret: paymentIntent.client_secret,
+    };
   } else {
     throw new AppError(httpStatus.BAD_REQUEST, "Payment confirmation failed");
   }

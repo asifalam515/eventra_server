@@ -1,10 +1,13 @@
-// src/server.ts
+// src/app.ts
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express2 from "express";
 
-// src/app/module/Auth/auth.router.ts
+// src/app/module/Admin/admin.router.ts
 import { Router } from "express";
+
+// src/middleware/auth.ts
+import jwt2 from "jsonwebtoken";
 
 // src/app/module/Auth/auth.service.ts
 import bcrypt from "bcryptjs";
@@ -162,6 +165,421 @@ var AuthService = {
   getUserFromToken
 };
 
+// src/middleware/auth.ts
+var auth = (...roles) => {
+  return async (req, res, next) => {
+    try {
+      const token = req.headers.authorization;
+      if (!token) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const decoded = jwt2.verify(token, secret);
+      const userData = await prisma.user.findUnique({
+        where: {
+          email: decoded.email
+        }
+      });
+      if (!userData) {
+        return res.status(404).json({ message: "User Not Found" });
+      }
+      if (userData.status !== "ACTIVE") {
+        return res.status(403).json({ message: "Account not active" });
+      }
+      if (roles.length && !roles.includes(decoded.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      req.user = decoded;
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  };
+};
+var auth_default = auth;
+
+// src/app/errors/AppErrors.ts
+var AppError = class extends Error {
+  statusCode;
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+    Error.captureStackTrace(this, this.constructor);
+  }
+};
+
+// src/app/module/Admin/admin.service.ts
+var getAllUsers = async (filters, pagination) => {
+  const { page, limit } = pagination;
+  const { search, role } = filters;
+  const whereClause = {};
+  if (search) {
+    whereClause.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } }
+    ];
+  }
+  if (role) whereClause.role = role;
+  const users = await prisma.user.findMany({
+    where: whereClause,
+    skip: (page - 1) * limit,
+    take: limit,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      status: true,
+      createdAt: true,
+      _count: { select: { events: true, participations: true, payments: true } }
+    }
+  });
+  const total = await prisma.user.count({ where: whereClause });
+  return { users, total, page, limit };
+};
+var getSingleUser = async (id) => {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      events: true,
+      participations: { include: { event: true } },
+      payments: { include: { event: true } },
+      reviews: { include: { event: true } },
+      invitations: { include: { event: true } }
+    }
+  });
+  if (!user) throw new AppError(404, "User not found");
+  return user;
+};
+var updateUserStatus = async (id, status, adminId) => {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new AppError(404, "User not found");
+  const updatedUser = await prisma.user.update({
+    where: { id },
+    data: { status }
+  });
+  if (status === "BLOCKED") {
+    await prisma.activityLog.create({
+      data: { action: "BAN_USER", targetId: id, adminId, details: `Banned user ${user.email}` }
+    });
+  }
+  return updatedUser;
+};
+var updateUserRole = async (id, role, adminId) => {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new AppError(404, "User not found");
+  const updatedUser = await prisma.user.update({
+    where: { id },
+    data: { role }
+  });
+  await prisma.activityLog.create({
+    data: { action: "UPDATE_ROLE", targetId: id, details: `Changed role to ${role}`, adminId }
+  });
+  return updatedUser;
+};
+var getAllEvents = async (filters, pagination) => {
+  const { page, limit } = pagination;
+  const { search, type, isFeatured } = filters;
+  const whereClause = {};
+  if (search) whereClause.title = { contains: search, mode: "insensitive" };
+  if (type) whereClause.type = type;
+  if (isFeatured !== void 0) whereClause.isFeatured = isFeatured === "true";
+  const events = await prisma.event.findMany({
+    where: whereClause,
+    skip: (page - 1) * limit,
+    take: limit,
+    include: { creator: { select: { name: true, email: true } } }
+  });
+  const total = await prisma.event.count({ where: whereClause });
+  return { events, total, page, limit };
+};
+var getSingleEvent = async (id) => {
+  const event = await prisma.event.findUnique({
+    where: { id },
+    include: {
+      creator: { select: { id: true, name: true, email: true } },
+      participants: { include: { user: { select: { id: true, name: true, email: true } } } },
+      payments: true,
+      reviews: true
+    }
+  });
+  if (!event) throw new AppError(404, "Event not found");
+  return event;
+};
+var deleteEvent = async (id, adminId) => {
+  const event = await prisma.event.findUnique({ where: { id } });
+  if (!event) throw new AppError(404, "Event not found");
+  await prisma.event.delete({ where: { id } });
+  await prisma.activityLog.create({
+    data: { action: "DELETE_EVENT", targetId: id, adminId }
+  });
+  return true;
+};
+var toggleEventFeature = async (id, isFeatured) => {
+  const event = await prisma.event.findUnique({ where: { id } });
+  if (!event) throw new AppError(404, "Event not found");
+  return await prisma.event.update({
+    where: { id },
+    data: { isFeatured }
+  });
+};
+var deleteReview = async (id, adminId) => {
+  const review = await prisma.review.findUnique({ where: { id } });
+  if (!review) throw new AppError(404, "Review not found");
+  await prisma.review.delete({ where: { id } });
+  const result = await prisma.review.aggregate({
+    _avg: { rating: true },
+    _count: { id: true },
+    where: { eventId: review.eventId }
+  });
+  await prisma.event.update({
+    where: { id: review.eventId },
+    data: {
+      averageRating: result._avg.rating || 0,
+      reviewCount: result._count.id || 0
+    }
+  });
+  await prisma.activityLog.create({
+    data: { action: "DELETE_REVIEW", targetId: id, adminId }
+  });
+  return true;
+};
+var getDashboardAnalytics = async () => {
+  const totalUsers = await prisma.user.count();
+  const totalEvents = await prisma.event.count();
+  const totalReviews = await prisma.review.count();
+  const totalParticipations = await prisma.participant.count();
+  const paymentAgg = await prisma.payment.aggregate({
+    _sum: { amount: true },
+    where: { status: "PAID" }
+  });
+  return {
+    totalUsers,
+    totalEvents,
+    totalReviews,
+    totalParticipations,
+    totalRevenue: paymentAgg._sum.amount || 0
+  };
+};
+var getActivityLogs = async (pagination) => {
+  const { page, limit } = pagination;
+  const logs = await prisma.activityLog.findMany({
+    skip: (page - 1) * limit,
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: { admin: { select: { id: true, name: true, email: true } } }
+  });
+  const total = await prisma.activityLog.count();
+  return { logs, total, page, limit };
+};
+var getAllReports = async (filters, pagination) => {
+  const { page, limit } = pagination;
+  const { status, targetType } = filters;
+  const whereClause = {};
+  if (status) whereClause.status = status;
+  if (targetType) whereClause.targetType = targetType;
+  const reports = await prisma.report.findMany({
+    where: whereClause,
+    skip: (page - 1) * limit,
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: { reporter: { select: { id: true, name: true, email: true } } }
+  });
+  const total = await prisma.report.count({ where: whereClause });
+  return { reports, total, page, limit };
+};
+var updateReportStatus = async (id, status) => {
+  const report = await prisma.report.findUnique({ where: { id } });
+  if (!report) throw new AppError(404, "Report not found");
+  return await prisma.report.update({
+    where: { id },
+    data: { status }
+  });
+};
+var AdminService = {
+  getAllUsers,
+  getSingleUser,
+  updateUserStatus,
+  updateUserRole,
+  getAllEvents,
+  getSingleEvent,
+  deleteEvent,
+  toggleEventFeature,
+  deleteReview,
+  getDashboardAnalytics,
+  getActivityLogs,
+  getAllReports,
+  updateReportStatus
+};
+
+// src/app/module/Admin/admin.controller.ts
+var getAllUsers2 = async (req, res) => {
+  try {
+    const filters = req.query;
+    const pagination = {
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 10
+    };
+    const result = await AdminService.getAllUsers(filters, pagination);
+    res.status(200).json({ success: true, message: "Users fetched successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var getSingleUser2 = async (req, res) => {
+  try {
+    const result = await AdminService.getSingleUser(req.params.id);
+    res.status(200).json({ success: true, message: "User fetched successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var banUser = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const adminId = req.user?.id;
+    const result = await AdminService.updateUserStatus(req.params.id, status || "BLOCKED", adminId);
+    res.status(200).json({ success: true, message: "User status updated successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var updateUserRole2 = async (req, res) => {
+  try {
+    const { role } = req.body;
+    const adminId = req.user?.id;
+    const result = await AdminService.updateUserRole(req.params.id, role, adminId);
+    res.status(200).json({ success: true, message: "User role updated successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var getAllEvents2 = async (req, res) => {
+  try {
+    const filters = req.query;
+    const pagination = {
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 10
+    };
+    const result = await AdminService.getAllEvents(filters, pagination);
+    res.status(200).json({ success: true, message: "Events fetched successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var getSingleEvent2 = async (req, res) => {
+  try {
+    const result = await AdminService.getSingleEvent(req.params.id);
+    res.status(200).json({ success: true, message: "Event fetched successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var deleteEvent2 = async (req, res) => {
+  try {
+    const adminId = req.user?.id;
+    await AdminService.deleteEvent(req.params.id, adminId);
+    res.status(200).json({ success: true, message: "Event deleted successfully" });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var toggleEventFeature2 = async (req, res) => {
+  try {
+    const { isFeatured } = req.body;
+    const result = await AdminService.toggleEventFeature(req.params.id, isFeatured);
+    res.status(200).json({ success: true, message: "Event feature toggled successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var deleteReview2 = async (req, res) => {
+  try {
+    const adminId = req.user?.id;
+    await AdminService.deleteReview(req.params.id, adminId);
+    res.status(200).json({ success: true, message: "Review deleted successfully" });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var getDashboardAnalytics2 = async (req, res) => {
+  try {
+    const result = await AdminService.getDashboardAnalytics();
+    res.status(200).json({ success: true, message: "Dashboard analytics fetched successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var getActivityLogs2 = async (req, res) => {
+  try {
+    const pagination = {
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 20
+    };
+    const result = await AdminService.getActivityLogs(pagination);
+    res.status(200).json({ success: true, message: "Activity logs fetched successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var getAllReports2 = async (req, res) => {
+  try {
+    const filters = req.query;
+    const pagination = {
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 20
+    };
+    const result = await AdminService.getAllReports(filters, pagination);
+    res.status(200).json({ success: true, message: "Reports fetched successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var updateReportStatus2 = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const result = await AdminService.updateReportStatus(req.params.id, status);
+    res.status(200).json({ success: true, message: "Report status updated successfully", data: result });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+var AdminController = {
+  getAllUsers: getAllUsers2,
+  getSingleUser: getSingleUser2,
+  banUser,
+  updateUserRole: updateUserRole2,
+  getAllEvents: getAllEvents2,
+  getSingleEvent: getSingleEvent2,
+  deleteEvent: deleteEvent2,
+  toggleEventFeature: toggleEventFeature2,
+  deleteReview: deleteReview2,
+  getDashboardAnalytics: getDashboardAnalytics2,
+  getActivityLogs: getActivityLogs2,
+  getAllReports: getAllReports2,
+  updateReportStatus: updateReportStatus2
+};
+
+// src/app/module/Admin/admin.router.ts
+var router = Router();
+var requireAdmin = auth_default("ADMIN" /* admin */);
+router.get("/users", requireAdmin, AdminController.getAllUsers);
+router.get("/users/:id", requireAdmin, AdminController.getSingleUser);
+router.put("/users/:id/ban", requireAdmin, AdminController.banUser);
+router.put("/users/:id/role", requireAdmin, AdminController.updateUserRole);
+router.get("/events", requireAdmin, AdminController.getAllEvents);
+router.get("/events/:id", requireAdmin, AdminController.getSingleEvent);
+router.delete("/events/:id", requireAdmin, AdminController.deleteEvent);
+router.put("/events/:id/feature", requireAdmin, AdminController.toggleEventFeature);
+router.delete("/reviews/:id", requireAdmin, AdminController.deleteReview);
+router.get("/analytics", requireAdmin, AdminController.getDashboardAnalytics);
+router.get("/activity-logs", requireAdmin, AdminController.getActivityLogs);
+router.get("/reports", requireAdmin, AdminController.getAllReports);
+router.put("/reports/:id/status", requireAdmin, AdminController.updateReportStatus);
+var AdminRouter = router;
+
+// src/app/module/Auth/auth.router.ts
+import { Router as Router2 } from "express";
+
 // src/app/module/Auth/auth.controller.ts
 var createUser = async (req, res) => {
   try {
@@ -243,58 +661,15 @@ var AuthController = {
 };
 
 // src/app/module/Auth/auth.router.ts
-var router = Router();
-router.get("/me", AuthController.getUserFromToken);
-router.post("/register", AuthController.createUser);
-router.post("/login", AuthController.loginUser);
-router.post("/logout", AuthController.logoutUser);
-var AuthRouter = { router };
+var router2 = Router2();
+router2.get("/me", AuthController.getUserFromToken);
+router2.post("/register", AuthController.createUser);
+router2.post("/login", AuthController.loginUser);
+router2.post("/logout", AuthController.logoutUser);
+var AuthRouter = { router: router2 };
 
 // src/app/module/Event/event.router.ts
-import { Router as Router2 } from "express";
-
-// src/middleware/auth.ts
-import jwt2 from "jsonwebtoken";
-var auth = (...roles) => {
-  return async (req, res, next) => {
-    try {
-      const token = req.headers.authorization;
-      if (!token) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const decoded = jwt2.verify(token, secret);
-      const userData = await prisma.user.findUnique({
-        where: {
-          email: decoded.email
-        }
-      });
-      if (!userData) {
-        return res.status(404).json({ message: "User Not Found" });
-      }
-      if (userData.status !== "ACTIVE") {
-        return res.status(403).json({ message: "Account not active" });
-      }
-      if (roles.length && !roles.includes(decoded.role)) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      req.user = decoded;
-      return next();
-    } catch (error) {
-      return next(error);
-    }
-  };
-};
-var auth_default = auth;
-
-// src/app/errors/AppErrors.ts
-var AppError = class extends Error {
-  statusCode;
-  constructor(statusCode, message) {
-    super(message);
-    this.statusCode = statusCode;
-    Error.captureStackTrace(this, this.constructor);
-  }
-};
+import { Router as Router3 } from "express";
 
 // src/app/module/Event/event.service.ts
 var createEventIntoDB = async (payload, userId) => {
@@ -311,7 +686,7 @@ var createEventIntoDB = async (payload, userId) => {
   });
   return newEvent;
 };
-var getAllEvents = async (filters, pagination) => {
+var getAllEvents3 = async (filters, pagination) => {
   const { page, limit } = pagination;
   const { search, category, location } = filters;
   const whereClause = {};
@@ -332,6 +707,21 @@ var getAllEvents = async (filters, pagination) => {
   }
   const events = await prisma.event.findMany({
     where: whereClause,
+    skip: (page - 1) * limit,
+    take: limit
+  });
+  return events;
+};
+var getUpcomingEvents = async (pagination) => {
+  const { page, limit } = pagination;
+  const events = await prisma.event.findMany({
+    where: {
+      date: {
+        gte: /* @__PURE__ */ new Date()
+      },
+      eventStatus: "AVAILABLE"
+    },
+    orderBy: [{ date: "asc" }, { createdAt: "desc" }],
     skip: (page - 1) * limit,
     take: limit
   });
@@ -383,7 +773,8 @@ var deleteEventById = async (id) => {
 };
 var EventService = {
   createEventIntoDB,
-  getAllEvents,
+  getAllEvents: getAllEvents3,
+  getUpcomingEvents,
   getEventById,
   updateEventById,
   deleteEventById
@@ -412,7 +803,7 @@ var createEvent = async (req, res) => {
     });
   }
 };
-var getAllEvents2 = async (req, res) => {
+var getAllEvents4 = async (req, res) => {
   try {
     const filters = req.query;
     const pagination = {
@@ -433,7 +824,27 @@ var getAllEvents2 = async (req, res) => {
     });
   }
 };
-var getSingleEvent = async (req, res) => {
+var getUpcomingEvents2 = async (req, res) => {
+  try {
+    const pagination = {
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 10
+    };
+    const result = await EventService.getUpcomingEvents(pagination);
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: "Upcoming events fetched successfully"
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+var getSingleEvent3 = async (req, res) => {
   const eventId = req.params.id;
   const event = await EventService.getEventById(eventId);
   res.status(200).json({
@@ -452,7 +863,7 @@ var updateEvent = async (req, res) => {
     message: "Event updated successfully"
   });
 };
-var deleteEvent = async (req, res) => {
+var deleteEvent3 = async (req, res) => {
   await EventService.deleteEventById(req.params.id);
   res.status(200).json({
     success: true,
@@ -461,35 +872,37 @@ var deleteEvent = async (req, res) => {
 };
 var EventController = {
   createEvent,
-  getAllEvents: getAllEvents2,
-  getSingleEvent,
+  getAllEvents: getAllEvents4,
+  getUpcomingEvents: getUpcomingEvents2,
+  getSingleEvent: getSingleEvent3,
   updateEvent,
-  deleteEvent
+  deleteEvent: deleteEvent3
 };
 
 // src/app/module/Event/event.router.ts
-var router2 = Router2();
-router2.get("/", EventController.getAllEvents);
-router2.post(
+var router3 = Router3();
+router3.get("/", EventController.getAllEvents);
+router3.get("/upcoming", EventController.getUpcomingEvents);
+router3.post(
   "/",
   auth_default("USER" /* user */, "ADMIN" /* admin */, "MODERATOR" /* moderator */),
   EventController.createEvent
 );
-router2.get("/:id", EventController.getSingleEvent);
-router2.put(
+router3.get("/:id", EventController.getSingleEvent);
+router3.put(
   "/:id",
   auth_default("USER" /* user */, "ADMIN" /* admin */, "MODERATOR" /* moderator */),
   EventController.updateEvent
 );
-router2.delete(
+router3.delete(
   "/:id",
   auth_default("USER" /* user */, "ADMIN" /* admin */, "MODERATOR" /* moderator */),
   EventController.deleteEvent
 );
-var eventRouter = { router: router2 };
+var eventRouter = { router: router3 };
 
 // src/app/module/Invitation/invitation.router.ts
-import { Router as Router3 } from "express";
+import { Router as Router4 } from "express";
 
 // src/app/module/Invitation/invitation.service.ts
 var sendInvitation = async (eventId, targetUserId, requesterId) => {
@@ -655,31 +1068,31 @@ var InvitationController = {
 };
 
 // src/app/module/Invitation/invitation.router.ts
-var router3 = Router3();
-router3.post(
+var router4 = Router4();
+router4.post(
   "/send",
   auth_default("ADMIN" /* admin */, "USER" /* user */),
   InvitationController.sendInvitation
 );
-router3.patch(
+router4.patch(
   "/:id/accept",
   auth_default("USER" /* user */, "ADMIN" /* admin */),
   InvitationController.acceptInvitation
 );
-router3.patch(
+router4.patch(
   "/:id/decline",
   auth_default("USER" /* user */, "ADMIN" /* admin */),
   InvitationController.declineInvitation
 );
-router3.get(
+router4.get(
   "/my-invitations",
   auth_default("USER" /* user */, "ADMIN" /* admin */),
   InvitationController.getUserInvitations
 );
-var InvitationRouter = router3;
+var InvitationRouter = router4;
 
 // src/app/module/Participation/participation.router.ts
-import { Router as Router4 } from "express";
+import { Router as Router5 } from "express";
 
 // src/app/module/Participation/participation.service.ts
 var joinEvent = async (userId, eventId) => {
@@ -839,23 +1252,27 @@ var ParticipationController = {
 };
 
 // src/app/module/Participation/participation.router.ts
-var router4 = Router4();
-router4.patch(
+var router5 = Router5();
+router5.patch(
   "/update-status",
   auth_default("ADMIN" /* admin */, "USER" /* user */),
   ParticipationController.updateParticipationStatus
 );
-router4.post(
+router5.post(
   "/join",
   auth_default("ADMIN" /* admin */, "USER" /* user */),
   ParticipationController.joinEvent
 );
-router4.get(
+router5.get(
   "/:eventId",
   auth_default("ADMIN" /* admin */, "USER" /* user */),
   ParticipationController.getAllParticipants
 );
-var ParticipationRouter = router4;
+var ParticipationRouter = router5;
+
+// src/app/module/Payment/payment.controller.ts
+import httpStatus2 from "http-status";
+import Stripe2 from "stripe";
 
 // src/utils/catchAsync.ts
 var catchAsync = (fn) => {
@@ -879,6 +1296,24 @@ var sendResponse_default = sendResponse;
 import httpStatus from "http-status";
 import Stripe from "stripe";
 var stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {});
+var markPaymentAsPaid = async (transactionId) => {
+  const payment = await prisma.payment.findUnique({ where: { transactionId } });
+  if (!payment) {
+    throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
+  }
+  await prisma.payment.update({
+    where: { transactionId },
+    data: { status: "PAID" }
+  });
+  await prisma.participant.updateMany({
+    where: { userId: payment.userId, eventId: payment.eventId },
+    data: { payment: "PAID" }
+  });
+  await prisma.invitation.updateMany({
+    where: { userId: payment.userId, eventId: payment.eventId },
+    data: { payment: "PAID" }
+  });
+};
 var createPaymentIntent = async (userEmail, eventId) => {
   const user = await prisma.user.findUnique({ where: { email: userEmail } });
   if (!user) {
@@ -919,9 +1354,13 @@ var handleStripeWebhook = async (event) => {
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object;
     const transactionId = paymentIntent.id;
-    const payment = await prisma.payment.findUnique({ where: { transactionId } });
+    const payment = await prisma.payment.findUnique({
+      where: { transactionId }
+    });
     if (!payment) {
-      console.error(`Payment record not found for transaction: ${transactionId}`);
+      console.error(
+        `Payment record not found for transaction: ${transactionId}`
+      );
       return;
     }
     await prisma.payment.update({
@@ -949,28 +1388,43 @@ var handleStripeWebhook = async (event) => {
   }
 };
 var confirmPayment = async (transactionId) => {
-  const paymentIntent = await stripe.paymentIntents.confirm(transactionId, {
-    payment_method: "pm_card_visa",
-    return_url: "http://localhost:5000"
-  });
-  if (paymentIntent.status === "succeeded" || paymentIntent.status === "requires_action" || paymentIntent.status === "processing") {
-    const payment = await prisma.payment.findUnique({ where: { transactionId } });
-    if (!payment) {
-      throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
-    }
-    await prisma.payment.update({
-      where: { transactionId },
-      data: { status: "PAID" }
-    });
-    await prisma.participant.updateMany({
-      where: { userId: payment.userId, eventId: payment.eventId },
-      data: { payment: "PAID" }
-    });
-    await prisma.invitation.updateMany({
-      where: { userId: payment.userId, eventId: payment.eventId },
-      data: { payment: "PAID" }
-    });
-    return { status: "PAID" };
+  const existingIntent = await stripe.paymentIntents.retrieve(transactionId);
+  if (existingIntent.status === "succeeded" || existingIntent.status === "processing" || existingIntent.status === "requires_capture") {
+    await markPaymentAsPaid(transactionId);
+    return {
+      status: "PAID",
+      paymentIntentStatus: existingIntent.status,
+      alreadyConfirmed: true
+    };
+  }
+  if (existingIntent.status === "requires_action") {
+    return {
+      status: "PENDING_ACTION",
+      paymentIntentStatus: existingIntent.status,
+      clientSecret: existingIntent.client_secret
+    };
+  }
+  if (existingIntent.status !== "requires_confirmation") {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Payment cannot be confirmed in current state: ${existingIntent.status}`
+    );
+  }
+  const paymentIntent = await stripe.paymentIntents.confirm(transactionId);
+  if (paymentIntent.status === "succeeded" || paymentIntent.status === "processing" || paymentIntent.status === "requires_capture") {
+    await markPaymentAsPaid(transactionId);
+    return {
+      status: "PAID",
+      paymentIntentStatus: paymentIntent.status,
+      alreadyConfirmed: false
+    };
+  }
+  if (paymentIntent.status === "requires_action") {
+    return {
+      status: "PENDING_ACTION",
+      paymentIntentStatus: paymentIntent.status,
+      clientSecret: paymentIntent.client_secret
+    };
   } else {
     throw new AppError(httpStatus.BAD_REQUEST, "Payment confirmation failed");
   }
@@ -982,8 +1436,6 @@ var PaymentService = {
 };
 
 // src/app/module/Payment/payment.controller.ts
-import httpStatus2 from "http-status";
-import Stripe2 from "stripe";
 var stripe2 = new Stripe2(process.env.STRIPE_SECRET_KEY, {});
 var createPaymentIntent2 = catchAsync(async (req, res) => {
   const { eventId } = req.body;
@@ -1024,10 +1476,11 @@ var confirmPayment2 = catchAsync(async (req, res) => {
     throw new AppError(httpStatus2.BAD_REQUEST, "transactionId is required");
   }
   const result = await PaymentService.confirmPayment(transactionId);
+  const message = result.status === "PAID" ? "Payment confirmed successfully" : "Payment requires additional action";
   sendResponse_default(res, {
     statusCode: httpStatus2.OK,
     success: true,
-    message: "Payment confirmed successfully",
+    message,
     data: result
   });
 });
@@ -1039,21 +1492,59 @@ var PaymentController = {
 
 // src/app/module/Payment/payment.route.ts
 import express from "express";
-var router5 = express.Router();
-router5.post(
+var router6 = express.Router();
+router6.post(
   "/create-intent",
   auth_default("USER" /* user */),
   PaymentController.createPaymentIntent
 );
-router5.post(
+router6.post(
   "/confirm",
   auth_default("USER" /* user */),
   PaymentController.confirmPayment
 );
-var PaymentRoute = router5;
+var PaymentRoute = router6;
+
+// src/app/module/Report/report.router.ts
+import { Router as Router6 } from "express";
+
+// src/app/module/Report/report.service.ts
+var createReport = async (userId, targetType, targetId, reason) => {
+  return await prisma.report.create({
+    data: {
+      reporterId: userId,
+      targetType,
+      targetId,
+      reason
+    }
+  });
+};
+var ReportService = { createReport };
+
+// src/app/module/Report/report.controller.ts
+var createReport2 = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { targetType, targetId, reason } = req.body;
+    if (!targetType || !targetId || !reason) {
+      return res.status(400).json({ success: false, message: "targetType, targetId, and reason are required" });
+    }
+    const report = await ReportService.createReport(userId, targetType, targetId, reason);
+    res.status(201).json({ success: true, message: "Report created successfully", data: report });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+var ReportController = { createReport: createReport2 };
+
+// src/app/module/Report/report.router.ts
+var router7 = Router6();
+var requireAuth = auth_default("USER" /* user */, "ADMIN" /* admin */, "MODERATOR" /* moderator */);
+router7.post("/", requireAuth, ReportController.createReport);
+var ReportRouter = router7;
 
 // src/app/module/Review/review.router.ts
-import { Router as Router5 } from "express";
+import { Router as Router7 } from "express";
 
 // src/app/module/Review/review.service.ts
 var _updateEventAverageRating = async (eventId) => {
@@ -1130,7 +1621,7 @@ var updateReview = async (reviewId, userId, rating, comment) => {
   await _updateEventAverageRating(review.eventId);
   return review;
 };
-var deleteReview = async (reviewId, userId) => {
+var deleteReview3 = async (reviewId, userId) => {
   const existingReview = await prisma.review.findUnique({ where: { id: reviewId } });
   if (!existingReview) throw new Error("Review not found");
   if (existingReview.userId !== userId) throw new Error("Not authorized to delete this review");
@@ -1142,7 +1633,7 @@ var ReviewService = {
   createReview,
   getReviewsByEvent,
   updateReview,
-  deleteReview
+  deleteReview: deleteReview3
 };
 
 // src/app/module/Review/review.controller.ts
@@ -1179,7 +1670,7 @@ var updateReview2 = async (req, res) => {
     res.status(400).json({ success: false, message: error.message || "Failed to update review" });
   }
 };
-var deleteReview2 = async (req, res) => {
+var deleteReview4 = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
@@ -1193,19 +1684,19 @@ var ReviewController = {
   createReview: createReview2,
   getReviewsByEvent: getReviewsByEvent2,
   updateReview: updateReview2,
-  deleteReview: deleteReview2
+  deleteReview: deleteReview4
 };
 
 // src/app/module/Review/review.router.ts
-var router6 = Router5();
-router6.post("/", auth_default("USER" /* user */, "ADMIN" /* admin */), ReviewController.createReview);
-router6.get("/event/:eventId", ReviewController.getReviewsByEvent);
-router6.patch("/:id", auth_default("USER" /* user */, "ADMIN" /* admin */), ReviewController.updateReview);
-router6.delete("/:id", auth_default("USER" /* user */, "ADMIN" /* admin */), ReviewController.deleteReview);
-var ReviewRouter = router6;
+var router8 = Router7();
+router8.post("/", auth_default("USER" /* user */, "ADMIN" /* admin */), ReviewController.createReview);
+router8.get("/event/:eventId", ReviewController.getReviewsByEvent);
+router8.patch("/:id", auth_default("USER" /* user */, "ADMIN" /* admin */), ReviewController.updateReview);
+router8.delete("/:id", auth_default("USER" /* user */, "ADMIN" /* admin */), ReviewController.deleteReview);
+var ReviewRouter = router8;
 
 // src/app/module/User/user.router.ts
-import { Router as Router6 } from "express";
+import { Router as Router8 } from "express";
 
 // src/app/module/User/user.service.ts
 var getUserById = async (id) => {
@@ -1261,10 +1752,10 @@ var updateUserProfile2 = async (req, res) => {
 var UserController = { updateUserProfile: updateUserProfile2, getUserById: getUserById2 };
 
 // src/app/module/User/user.router.ts
-var router7 = Router6();
-router7.patch("/profile/:id", UserController.updateUserProfile);
-router7.get("/:id", UserController.getUserById);
-var userRouter = { router: router7 };
+var router9 = Router8();
+router9.patch("/profile/:id", UserController.updateUserProfile);
+router9.get("/:id", UserController.getUserById);
+var userRouter = { router: router9 };
 
 // src/middleware/globalErrorHandler.ts
 var globalErrorHandler = (error, req, res, next) => {
@@ -1299,427 +1790,19 @@ var notFound = (req, res) => {
   });
 };
 
-// src/app/module/Admin/admin.router.ts
-import { Router as Router7 } from "express";
-
-// src/app/module/Admin/admin.service.ts
-var getAllUsers = async (filters, pagination) => {
-  const { page, limit } = pagination;
-  const { search, role } = filters;
-  const whereClause = {};
-  if (search) {
-    whereClause.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { email: { contains: search, mode: "insensitive" } }
-    ];
-  }
-  if (role) whereClause.role = role;
-  const users = await prisma.user.findMany({
-    where: whereClause,
-    skip: (page - 1) * limit,
-    take: limit,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      status: true,
-      createdAt: true,
-      _count: { select: { events: true, participations: true, payments: true } }
-    }
-  });
-  const total = await prisma.user.count({ where: whereClause });
-  return { users, total, page, limit };
-};
-var getSingleUser = async (id) => {
-  const user = await prisma.user.findUnique({
-    where: { id },
-    include: {
-      events: true,
-      participations: { include: { event: true } },
-      payments: { include: { event: true } },
-      reviews: { include: { event: true } },
-      invitations: { include: { event: true } }
-    }
-  });
-  if (!user) throw new AppError(404, "User not found");
-  return user;
-};
-var updateUserStatus = async (id, status, adminId) => {
-  const user = await prisma.user.findUnique({ where: { id } });
-  if (!user) throw new AppError(404, "User not found");
-  const updatedUser = await prisma.user.update({
-    where: { id },
-    data: { status }
-  });
-  if (status === "BLOCKED") {
-    await prisma.activityLog.create({
-      data: { action: "BAN_USER", targetId: id, adminId, details: `Banned user ${user.email}` }
-    });
-  }
-  return updatedUser;
-};
-var updateUserRole = async (id, role, adminId) => {
-  const user = await prisma.user.findUnique({ where: { id } });
-  if (!user) throw new AppError(404, "User not found");
-  const updatedUser = await prisma.user.update({
-    where: { id },
-    data: { role }
-  });
-  await prisma.activityLog.create({
-    data: { action: "UPDATE_ROLE", targetId: id, details: `Changed role to ${role}`, adminId }
-  });
-  return updatedUser;
-};
-var getAllEvents3 = async (filters, pagination) => {
-  const { page, limit } = pagination;
-  const { search, type, isFeatured } = filters;
-  const whereClause = {};
-  if (search) whereClause.title = { contains: search, mode: "insensitive" };
-  if (type) whereClause.type = type;
-  if (isFeatured !== void 0) whereClause.isFeatured = isFeatured === "true";
-  const events = await prisma.event.findMany({
-    where: whereClause,
-    skip: (page - 1) * limit,
-    take: limit,
-    include: { creator: { select: { name: true, email: true } } }
-  });
-  const total = await prisma.event.count({ where: whereClause });
-  return { events, total, page, limit };
-};
-var getSingleEvent2 = async (id) => {
-  const event = await prisma.event.findUnique({
-    where: { id },
-    include: {
-      creator: { select: { id: true, name: true, email: true } },
-      participants: { include: { user: { select: { id: true, name: true, email: true } } } },
-      payments: true,
-      reviews: true
-    }
-  });
-  if (!event) throw new AppError(404, "Event not found");
-  return event;
-};
-var deleteEvent2 = async (id, adminId) => {
-  const event = await prisma.event.findUnique({ where: { id } });
-  if (!event) throw new AppError(404, "Event not found");
-  await prisma.event.delete({ where: { id } });
-  await prisma.activityLog.create({
-    data: { action: "DELETE_EVENT", targetId: id, adminId }
-  });
-  return true;
-};
-var toggleEventFeature = async (id, isFeatured) => {
-  const event = await prisma.event.findUnique({ where: { id } });
-  if (!event) throw new AppError(404, "Event not found");
-  return await prisma.event.update({
-    where: { id },
-    data: { isFeatured }
-  });
-};
-var deleteReview3 = async (id, adminId) => {
-  const review = await prisma.review.findUnique({ where: { id } });
-  if (!review) throw new AppError(404, "Review not found");
-  await prisma.review.delete({ where: { id } });
-  const result = await prisma.review.aggregate({
-    _avg: { rating: true },
-    _count: { id: true },
-    where: { eventId: review.eventId }
-  });
-  await prisma.event.update({
-    where: { id: review.eventId },
-    data: {
-      averageRating: result._avg.rating || 0,
-      reviewCount: result._count.id || 0
-    }
-  });
-  await prisma.activityLog.create({
-    data: { action: "DELETE_REVIEW", targetId: id, adminId }
-  });
-  return true;
-};
-var getDashboardAnalytics = async () => {
-  const totalUsers = await prisma.user.count();
-  const totalEvents = await prisma.event.count();
-  const totalReviews = await prisma.review.count();
-  const totalParticipations = await prisma.participant.count();
-  const paymentAgg = await prisma.payment.aggregate({
-    _sum: { amount: true },
-    where: { status: "PAID" }
-  });
-  return {
-    totalUsers,
-    totalEvents,
-    totalReviews,
-    totalParticipations,
-    totalRevenue: paymentAgg._sum.amount || 0
-  };
-};
-var getActivityLogs = async (pagination) => {
-  const { page, limit } = pagination;
-  const logs = await prisma.activityLog.findMany({
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: { createdAt: "desc" },
-    include: { admin: { select: { id: true, name: true, email: true } } }
-  });
-  const total = await prisma.activityLog.count();
-  return { logs, total, page, limit };
-};
-var getAllReports = async (filters, pagination) => {
-  const { page, limit } = pagination;
-  const { status, targetType } = filters;
-  const whereClause = {};
-  if (status) whereClause.status = status;
-  if (targetType) whereClause.targetType = targetType;
-  const reports = await prisma.report.findMany({
-    where: whereClause,
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: { createdAt: "desc" },
-    include: { reporter: { select: { id: true, name: true, email: true } } }
-  });
-  const total = await prisma.report.count({ where: whereClause });
-  return { reports, total, page, limit };
-};
-var updateReportStatus = async (id, status) => {
-  const report = await prisma.report.findUnique({ where: { id } });
-  if (!report) throw new AppError(404, "Report not found");
-  return await prisma.report.update({
-    where: { id },
-    data: { status }
-  });
-};
-var AdminService = {
-  getAllUsers,
-  getSingleUser,
-  updateUserStatus,
-  updateUserRole,
-  getAllEvents: getAllEvents3,
-  getSingleEvent: getSingleEvent2,
-  deleteEvent: deleteEvent2,
-  toggleEventFeature,
-  deleteReview: deleteReview3,
-  getDashboardAnalytics,
-  getActivityLogs,
-  getAllReports,
-  updateReportStatus
-};
-
-// src/app/module/Admin/admin.controller.ts
-var getAllUsers2 = async (req, res) => {
-  try {
-    const filters = req.query;
-    const pagination = {
-      page: parseInt(req.query.page) || 1,
-      limit: parseInt(req.query.limit) || 10
-    };
-    const result = await AdminService.getAllUsers(filters, pagination);
-    res.status(200).json({ success: true, message: "Users fetched successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var getSingleUser2 = async (req, res) => {
-  try {
-    const result = await AdminService.getSingleUser(req.params.id);
-    res.status(200).json({ success: true, message: "User fetched successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var banUser = async (req, res) => {
-  try {
-    const { status } = req.body;
-    const adminId = req.user?.id;
-    const result = await AdminService.updateUserStatus(req.params.id, status || "BLOCKED", adminId);
-    res.status(200).json({ success: true, message: "User status updated successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var updateUserRole2 = async (req, res) => {
-  try {
-    const { role } = req.body;
-    const adminId = req.user?.id;
-    const result = await AdminService.updateUserRole(req.params.id, role, adminId);
-    res.status(200).json({ success: true, message: "User role updated successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var getAllEvents4 = async (req, res) => {
-  try {
-    const filters = req.query;
-    const pagination = {
-      page: parseInt(req.query.page) || 1,
-      limit: parseInt(req.query.limit) || 10
-    };
-    const result = await AdminService.getAllEvents(filters, pagination);
-    res.status(200).json({ success: true, message: "Events fetched successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var getSingleEvent3 = async (req, res) => {
-  try {
-    const result = await AdminService.getSingleEvent(req.params.id);
-    res.status(200).json({ success: true, message: "Event fetched successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var deleteEvent3 = async (req, res) => {
-  try {
-    const adminId = req.user?.id;
-    await AdminService.deleteEvent(req.params.id, adminId);
-    res.status(200).json({ success: true, message: "Event deleted successfully" });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var toggleEventFeature2 = async (req, res) => {
-  try {
-    const { isFeatured } = req.body;
-    const result = await AdminService.toggleEventFeature(req.params.id, isFeatured);
-    res.status(200).json({ success: true, message: "Event feature toggled successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var deleteReview4 = async (req, res) => {
-  try {
-    const adminId = req.user?.id;
-    await AdminService.deleteReview(req.params.id, adminId);
-    res.status(200).json({ success: true, message: "Review deleted successfully" });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var getDashboardAnalytics2 = async (req, res) => {
-  try {
-    const result = await AdminService.getDashboardAnalytics();
-    res.status(200).json({ success: true, message: "Dashboard analytics fetched successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var getActivityLogs2 = async (req, res) => {
-  try {
-    const pagination = {
-      page: parseInt(req.query.page) || 1,
-      limit: parseInt(req.query.limit) || 20
-    };
-    const result = await AdminService.getActivityLogs(pagination);
-    res.status(200).json({ success: true, message: "Activity logs fetched successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var getAllReports2 = async (req, res) => {
-  try {
-    const filters = req.query;
-    const pagination = {
-      page: parseInt(req.query.page) || 1,
-      limit: parseInt(req.query.limit) || 20
-    };
-    const result = await AdminService.getAllReports(filters, pagination);
-    res.status(200).json({ success: true, message: "Reports fetched successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var updateReportStatus2 = async (req, res) => {
-  try {
-    const { status } = req.body;
-    const result = await AdminService.updateReportStatus(req.params.id, status);
-    res.status(200).json({ success: true, message: "Report status updated successfully", data: result });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
-  }
-};
-var AdminController = {
-  getAllUsers: getAllUsers2,
-  getSingleUser: getSingleUser2,
-  banUser,
-  updateUserRole: updateUserRole2,
-  getAllEvents: getAllEvents4,
-  getSingleEvent: getSingleEvent3,
-  deleteEvent: deleteEvent3,
-  toggleEventFeature: toggleEventFeature2,
-  deleteReview: deleteReview4,
-  getDashboardAnalytics: getDashboardAnalytics2,
-  getActivityLogs: getActivityLogs2,
-  getAllReports: getAllReports2,
-  updateReportStatus: updateReportStatus2
-};
-
-// src/app/module/Admin/admin.router.ts
-var router8 = Router7();
-var requireAdmin = auth_default("ADMIN" /* admin */);
-router8.get("/users", requireAdmin, AdminController.getAllUsers);
-router8.get("/users/:id", requireAdmin, AdminController.getSingleUser);
-router8.put("/users/:id/ban", requireAdmin, AdminController.banUser);
-router8.put("/users/:id/role", requireAdmin, AdminController.updateUserRole);
-router8.get("/events", requireAdmin, AdminController.getAllEvents);
-router8.get("/events/:id", requireAdmin, AdminController.getSingleEvent);
-router8.delete("/events/:id", requireAdmin, AdminController.deleteEvent);
-router8.put("/events/:id/feature", requireAdmin, AdminController.toggleEventFeature);
-router8.delete("/reviews/:id", requireAdmin, AdminController.deleteReview);
-router8.get("/analytics", requireAdmin, AdminController.getDashboardAnalytics);
-router8.get("/activity-logs", requireAdmin, AdminController.getActivityLogs);
-router8.get("/reports", requireAdmin, AdminController.getAllReports);
-router8.put("/reports/:id/status", requireAdmin, AdminController.updateReportStatus);
-var AdminRouter = router8;
-
-// src/app/module/Report/report.router.ts
-import { Router as Router8 } from "express";
-
-// src/app/module/Report/report.service.ts
-var createReport = async (userId, targetType, targetId, reason) => {
-  return await prisma.report.create({
-    data: {
-      reporterId: userId,
-      targetType,
-      targetId,
-      reason
-    }
-  });
-};
-var ReportService = { createReport };
-
-// src/app/module/Report/report.controller.ts
-var createReport2 = async (req, res) => {
-  try {
-    const userId = req.user?.id;
-    const { targetType, targetId, reason } = req.body;
-    if (!targetType || !targetId || !reason) {
-      return res.status(400).json({ success: false, message: "targetType, targetId, and reason are required" });
-    }
-    const report = await ReportService.createReport(userId, targetType, targetId, reason);
-    res.status(201).json({ success: true, message: "Report created successfully", data: report });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-var ReportController = { createReport: createReport2 };
-
-// src/app/module/Report/report.router.ts
-var router9 = Router8();
-var requireAuth = auth_default("USER" /* user */, "ADMIN" /* admin */, "MODERATOR" /* moderator */);
-router9.post("/", requireAuth, ReportController.createReport);
-var ReportRouter = router9;
-
-// src/server.ts
+// src/app.ts
 var app = express2();
-var port = 5e3;
 app.use(express2.urlencoded({ extended: true }));
-app.post("/api/v1/payment/webhook", express2.raw({ type: "application/json" }), PaymentController.stripeWebhook);
+app.post(
+  "/api/v1/payment/webhook",
+  express2.raw({ type: "application/json" }),
+  PaymentController.stripeWebhook
+);
 app.use(express2.json());
 app.use(cors());
 app.use(cookieParser());
 app.use("/api/v1/auth", AuthRouter.router);
-app.use("/api/v1/event", eventRouter.router);
+app.use("/api/v1/events", eventRouter.router);
 app.use("/api/v1/user", userRouter.router);
 app.use("/api/v1/participation", ParticipationRouter);
 app.use("/api/v1/payment", PaymentRoute);
@@ -1727,11 +1810,15 @@ app.use("/api/v1/invitation", InvitationRouter);
 app.use("/api/v1/review", ReviewRouter);
 app.use("/api/v1/admin", AdminRouter);
 app.use("/api/v1/report", ReportRouter);
-app.use(notFound);
-app.use(globalErrorHandler);
 app.get("/", (req, res) => {
   res.send("Eventra Server Started");
 });
-app.listen(port, () => {
+app.use(notFound);
+app.use(globalErrorHandler);
+var app_default = app;
+
+// src/server.ts
+var port = Number(process.env.PORT) || 5e3;
+app_default.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });

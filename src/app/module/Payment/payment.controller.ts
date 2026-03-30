@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import { catchAsync } from "../../../utils/catchAsync";
-import sendResponse from "../../../utils/sendResponse";
-import { PaymentService } from "./payment.service";
 import httpStatus from "http-status";
 import Stripe from "stripe";
+import { catchAsync } from "../../../utils/catchAsync";
+import sendResponse from "../../../utils/sendResponse";
 import { AppError } from "../../errors/AppErrors";
+import { PaymentService } from "./payment.service";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {});
 
@@ -56,10 +56,15 @@ const confirmPayment = catchAsync(async (req: Request, res: Response) => {
 
   const result = await PaymentService.confirmPayment(transactionId);
 
+  const message =
+    result.status === "PAID"
+      ? "Payment confirmed successfully"
+      : "Payment requires additional action";
+
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: "Payment confirmed successfully",
+    message,
     data: result,
   });
 });
