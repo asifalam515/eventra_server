@@ -7,25 +7,31 @@ const router = Router();
 router.post(
   "/send",
   auth(UserRole.admin, UserRole.user),
-  InvitationController.sendInvitation
+  InvitationController.sendInvitation,
+);
+
+router.post(
+  "/send-by-email",
+  auth(UserRole.admin, UserRole.user),
+  InvitationController.sendInvitationByEmail,
 );
 
 router.patch(
   "/:id/accept",
   auth(UserRole.user, UserRole.admin),
-  InvitationController.acceptInvitation
+  InvitationController.acceptInvitation,
 );
 
 router.patch(
   "/:id/decline",
   auth(UserRole.user, UserRole.admin),
-  InvitationController.declineInvitation
+  InvitationController.declineInvitation,
 );
 
 router.get(
   "/my-invitations",
   auth(UserRole.user, UserRole.admin),
-  InvitationController.getUserInvitations
+  InvitationController.getUserInvitations,
 );
 
 export const InvitationRouter = router;

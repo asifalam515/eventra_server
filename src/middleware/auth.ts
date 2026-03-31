@@ -7,16 +7,39 @@ export enum UserRole {
   moderator = "MODERATOR",
   user = "USER",
 }
+
+const extractTokenFromHeader = (authorizationHeader?: string) => {
+  if (!authorizationHeader) return null;
+
+  const trimmedHeader = authorizationHeader.trim();
+
+  if (!trimmedHeader) return null;
+
+  // Accept either "Bearer <token>" or a raw token value.
+  const bearerMatch = trimmedHeader.match(/^Bearer\s+(.+)$/i);
+  const token = bearerMatch?.[1] ?? trimmedHeader;
+
+  return token.replace(/^['\"]|['\"]$/g, "").trim();
+};
+
 const auth = (...roles: UserRole[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const token = req.headers.authorization;
+      const token = extractTokenFromHeader(req.headers.authorization);
 
       if (!token) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return res
+          .status(401)
+          .json({ message: "Unauthorized: token is missing" });
       }
 
-      const decoded = jwt.verify(token, secret!) as JwtPayload;
+      if (!secret) {
+        return res
+          .status(500)
+          .json({ message: "Server auth configuration error" });
+      }
+
+      const decoded = jwt.verify(token, secret) as JwtPayload;
 
       const userData = await prisma.user.findUnique({
         where: {

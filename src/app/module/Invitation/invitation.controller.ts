@@ -5,13 +5,49 @@ const sendInvitation = async (req: Request, res: Response) => {
   try {
     const { eventId, userId } = req.body;
     const requesterId = req.user?.id as string;
-    
+
     if (!eventId || !userId) {
-      return res.status(400).json({ success: false, message: "Event ID and User ID are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Event ID and User ID are required" });
     }
 
-    const invitation = await InvitationService.sendInvitation(eventId, userId, requesterId);
-    
+    const invitation = await InvitationService.sendInvitation(
+      eventId,
+      userId,
+      requesterId,
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Invitation sent successfully",
+      data: invitation,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to send invitation",
+    });
+  }
+};
+
+const sendInvitationByEmail = async (req: Request, res: Response) => {
+  try {
+    const { eventId, email } = req.body;
+    const requesterId = req.user?.id as string;
+
+    if (!eventId || !email) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Event ID and email are required" });
+    }
+
+    const invitation = await InvitationService.sendInvitationByEmail(
+      eventId,
+      email,
+      requesterId,
+    );
+
     res.status(201).json({
       success: true,
       message: "Invitation sent successfully",
@@ -29,9 +65,12 @@ const acceptInvitation = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id as string;
-    
-    const result = await InvitationService.acceptInvitation(id as string, userId);
-    
+
+    const result = await InvitationService.acceptInvitation(
+      id as string,
+      userId,
+    );
+
     res.status(200).json({
       success: true,
       message: "Invitation accepted successfully",
@@ -49,9 +88,12 @@ const declineInvitation = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id as string;
-    
-    const invitation = await InvitationService.declineInvitation(id as string, userId);
-    
+
+    const invitation = await InvitationService.declineInvitation(
+      id as string,
+      userId,
+    );
+
     res.status(200).json({
       success: true,
       message: "Invitation declined successfully",
@@ -69,7 +111,7 @@ const getUserInvitations = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id as string;
     const invitations = await InvitationService.getUserInvitations(userId);
-    
+
     res.status(200).json({
       success: true,
       message: "Invitations retrieved successfully",
@@ -85,6 +127,7 @@ const getUserInvitations = async (req: Request, res: Response) => {
 
 export const InvitationController = {
   sendInvitation,
+  sendInvitationByEmail,
   acceptInvitation,
   declineInvitation,
   getUserInvitations,

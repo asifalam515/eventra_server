@@ -43,6 +43,10 @@ const getAllEvents = async (filters: any, pagination: any) => {
     where: whereClause,
     skip: (page - 1) * limit,
     take: limit,
+    include: {
+      creator: { select: { name: true, email: true } },
+      reviews: true,
+    },
   });
 
   return events;
@@ -60,6 +64,10 @@ const getUpcomingEvents = async (pagination: any) => {
     orderBy: [{ date: "asc" }, { createdAt: "desc" }],
     skip: (page - 1) * limit,
     take: limit,
+    include: {
+      creator: { select: { name: true, email: true } },
+      reviews: true,
+    },
   });
 
   return events;
@@ -69,6 +77,10 @@ const getEventById = async (id: string) => {
   const event = await prisma.event.findUnique({
     where: {
       id,
+    },
+    include: {
+      creator: { select: { name: true, email: true } },
+      reviews: true,
     },
   });
   if (!event) {

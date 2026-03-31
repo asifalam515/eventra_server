@@ -10,7 +10,7 @@ const getAllUsers = async (filters: any, pagination: any) => {
   if (search) {
     whereClause.OR = [
       { name: { contains: search, mode: "insensitive" } },
-      { email: { contains: search, mode: "insensitive" } }
+      { email: { contains: search, mode: "insensitive" } },
     ];
   }
   if (role) whereClause.role = role;
@@ -20,9 +20,16 @@ const getAllUsers = async (filters: any, pagination: any) => {
     skip: (page - 1) * limit,
     take: limit,
     select: {
-      id: true, name: true, email: true, role: true, status: true, createdAt: true,
-      _count: { select: { events: true, participations: true, payments: true } }
-    }
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      status: true,
+      createdAt: true,
+      _count: {
+        select: { events: true, participations: true, payments: true },
+      },
+    },
   });
 
   const total = await prisma.user.count({ where: whereClause });
@@ -37,25 +44,34 @@ const getSingleUser = async (id: string) => {
       participations: { include: { event: true } },
       payments: { include: { event: true } },
       reviews: { include: { event: true } },
-      invitations: { include: { event: true } }
-    }
+      invitations: { include: { event: true } },
+    },
   });
   if (!user) throw new AppError(404, "User not found");
   return user;
 };
 
-const updateUserStatus = async (id: string, status: string, adminId: string) => {
+const updateUserStatus = async (
+  id: string,
+  status: string,
+  adminId: string,
+) => {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) throw new AppError(404, "User not found");
 
   const updatedUser = await prisma.user.update({
     where: { id },
-    data: { status: status as any }
+    data: { status: status as any },
   });
 
   if (status === "BLOCKED") {
     await prisma.activityLog.create({
-      data: { action: "BAN_USER", targetId: id, adminId, details: `Banned user ${user.email}` }
+      data: {
+        action: "BAN_USER",
+        targetId: id,
+        adminId,
+        details: `Banned user ${user.email}`,
+      },
     });
   }
   return updatedUser;
@@ -67,11 +83,16 @@ const updateUserRole = async (id: string, role: string, adminId: string) => {
 
   const updatedUser = await prisma.user.update({
     where: { id },
-    data: { role: role as any }
+    data: { role: role as any },
   });
 
   await prisma.activityLog.create({
-    data: { action: "UPDATE_ROLE", targetId: id, details: `Changed role to ${role}`, adminId }
+    data: {
+      action: "UPDATE_ROLE",
+      targetId: id,
+      details: `Changed role to ${role}`,
+      adminId,
+    },
   });
   return updatedUser;
 };
@@ -84,13 +105,13 @@ const getAllEvents = async (filters: any, pagination: any) => {
   const whereClause: any = {};
   if (search) whereClause.title = { contains: search, mode: "insensitive" };
   if (type) whereClause.type = type;
-  if (isFeatured !== undefined) whereClause.isFeatured = isFeatured === 'true';
+  if (isFeatured !== undefined) whereClause.isFeatured = isFeatured === "true";
 
   const events = await prisma.event.findMany({
     where: whereClause,
     skip: (page - 1) * limit,
     take: limit,
-    include: { creator: { select: { name: true, email: true } } }
+    include: { creator: { select: { name: true, email: true } } },
   });
 
   const total = await prisma.event.count({ where: whereClause });
@@ -102,10 +123,12 @@ const getSingleEvent = async (id: string) => {
     where: { id },
     include: {
       creator: { select: { id: true, name: true, email: true } },
-      participants: { include: { user: { select: { id: true, name: true, email: true } } } },
+      participants: {
+        include: { user: { select: { id: true, name: true, email: true } } },
+      },
       payments: true,
-      reviews: true
-    }
+      reviews: true,
+    },
   });
   if (!event) throw new AppError(404, "Event not found");
   return event;
@@ -115,11 +138,19 @@ const deleteEvent = async (id: string, adminId: string) => {
   const event = await prisma.event.findUnique({ where: { id } });
   if (!event) throw new AppError(404, "Event not found");
 
-  await prisma.event.delete({ where: { id } });
-  
-  await prisma.activityLog.create({
-    data: { action: "DELETE_EVENT", targetId: id, adminId }
+  await prisma.$transaction(async (tx) => {
+    await tx.participant.deleteMany({ where: { eventId: id } });
+    await tx.invitation.deleteMany({ where: { eventId: id } });
+    await tx.payment.deleteMany({ where: { eventId: id } });
+    await tx.review.deleteMany({ where: { eventId: id } });
+
+    await tx.event.delete({ where: { id } });
+
+    await tx.activityLog.create({
+      data: { action: "DELETE_EVENT", targetId: id, adminId },
+    });
   });
+
   return true;
 };
 
@@ -129,7 +160,25 @@ const toggleEventFeature = async (id: string, isFeatured: boolean) => {
 
   return await prisma.event.update({
     where: { id },
-    data: { isFeatured }
+    data: { isFeatured },
+  });
+};
+
+const updateEventStatus = async (id: string, eventStatus: string) => {
+  const allowedStatuses = ["AVAILABLE", "COMPLETED", "CANCELLED", "EXPIRED"];
+  if (!allowedStatuses.includes(eventStatus)) {
+    throw new AppError(
+      400,
+      `Invalid eventStatus. Allowed values: ${allowedStatuses.join(", ")}`,
+    );
+  }
+
+  const event = await prisma.event.findUnique({ where: { id } });
+  if (!event) throw new AppError(404, "Event not found");
+
+  return await prisma.event.update({
+    where: { id },
+    data: { eventStatus: eventStatus as any },
   });
 };
 
@@ -147,14 +196,14 @@ const deleteReview = async (id: string, adminId: string) => {
 
   await prisma.event.update({
     where: { id: review.eventId },
-    data: { 
+    data: {
       averageRating: result._avg.rating || 0,
-      reviewCount: result._count.id || 0
+      reviewCount: result._count.id || 0,
     },
   });
 
   await prisma.activityLog.create({
-    data: { action: "DELETE_REVIEW", targetId: id, adminId }
+    data: { action: "DELETE_REVIEW", targetId: id, adminId },
   });
   return true;
 };
@@ -165,24 +214,28 @@ const getDashboardAnalytics = async () => {
   const totalEvents = await prisma.event.count();
   const totalReviews = await prisma.review.count();
   const totalParticipations = await prisma.participant.count();
-  
+
   const paymentAgg = await prisma.payment.aggregate({
     _sum: { amount: true },
-    where: { status: "PAID" }
+    where: { status: "PAID" },
   });
 
   return {
-    totalUsers, totalEvents, totalReviews, totalParticipations,
-    totalRevenue: paymentAgg._sum.amount || 0
+    totalUsers,
+    totalEvents,
+    totalReviews,
+    totalParticipations,
+    totalRevenue: paymentAgg._sum.amount || 0,
   };
 };
 
 const getActivityLogs = async (pagination: any) => {
   const { page, limit } = pagination;
   const logs = await prisma.activityLog.findMany({
-    skip: (page - 1) * limit, take: limit,
-    orderBy: { createdAt: 'desc' },
-    include: { admin: { select: { id: true, name: true, email: true } } }
+    skip: (page - 1) * limit,
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: { admin: { select: { id: true, name: true, email: true } } },
   });
   const total = await prisma.activityLog.count();
   return { logs, total, page, limit };
@@ -199,9 +252,10 @@ const getAllReports = async (filters: any, pagination: any) => {
 
   const reports = await prisma.report.findMany({
     where: whereClause,
-    skip: (page - 1) * limit, take: limit,
-    orderBy: { createdAt: 'desc' },
-    include: { reporter: { select: { id: true, name: true, email: true } } }
+    skip: (page - 1) * limit,
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: { reporter: { select: { id: true, name: true, email: true } } },
   });
   const total = await prisma.report.count({ where: whereClause });
   return { reports, total, page, limit };
@@ -213,13 +267,23 @@ const updateReportStatus = async (id: string, status: string) => {
 
   return await prisma.report.update({
     where: { id },
-    data: { status: status as any }
+    data: { status: status as any },
   });
 };
 
 export const AdminService = {
-  getAllUsers, getSingleUser, updateUserStatus, updateUserRole,
-  getAllEvents, getSingleEvent, deleteEvent, toggleEventFeature,
-  deleteReview, getDashboardAnalytics, getActivityLogs,
-  getAllReports, updateReportStatus
+  getAllUsers,
+  getSingleUser,
+  updateUserStatus,
+  updateUserRole,
+  getAllEvents,
+  getSingleEvent,
+  deleteEvent,
+  toggleEventFeature,
+  updateEventStatus,
+  deleteReview,
+  getDashboardAnalytics,
+  getActivityLogs,
+  getAllReports,
+  updateReportStatus,
 };

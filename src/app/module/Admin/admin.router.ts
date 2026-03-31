@@ -15,13 +15,26 @@ router.put("/users/:id/role", requireAdmin, AdminController.updateUserRole);
 router.get("/events", requireAdmin, AdminController.getAllEvents);
 router.get("/events/:id", requireAdmin, AdminController.getSingleEvent);
 router.delete("/events/:id", requireAdmin, AdminController.deleteEvent);
-router.put("/events/:id/feature", requireAdmin, AdminController.toggleEventFeature);
+router.put(
+  "/events/:id/feature",
+  requireAdmin,
+  AdminController.toggleEventFeature,
+);
+router.patch(
+  "/events/:id/status",
+  requireAdmin,
+  AdminController.updateEventStatus,
+);
 router.delete("/reviews/:id", requireAdmin, AdminController.deleteReview);
 
 // Activity Logs & Reports & Analytics
 router.get("/analytics", requireAdmin, AdminController.getDashboardAnalytics);
 router.get("/activity-logs", requireAdmin, AdminController.getActivityLogs);
 router.get("/reports", requireAdmin, AdminController.getAllReports);
-router.put("/reports/:id/status", requireAdmin, AdminController.updateReportStatus);
+router.put(
+  "/reports/:id/status",
+  requireAdmin,
+  AdminController.updateReportStatus,
+);
 
 export const AdminRouter = router;

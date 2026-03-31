@@ -1,17 +1,31 @@
-import { InvitationStatus, PaymentStatus, ParticipationStatus } from "../../../generated/prisma/enums";
+import {
+  InvitationStatus,
+  ParticipationStatus,
+  PaymentStatus,
+} from "../../../generated/prisma/enums";
 import { prisma } from "../../../lib/prisma";
 import { UserRole } from "../../../middleware/auth";
 
-const sendInvitation = async (eventId: string, targetUserId: string, requesterId: string) => {
+const sendInvitation = async (
+  eventId: string,
+  targetUserId: string,
+  requesterId: string,
+) => {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) throw new Error("Event not found");
 
-  const requester = await prisma.user.findUnique({ where: { id: requesterId } });
+  const requester = await prisma.user.findUnique({
+    where: { id: requesterId },
+  });
   if (requester?.role !== UserRole.admin && event.creatorId !== requesterId) {
-    throw new Error("You are not authorized to send an invitation for this event");
+    throw new Error(
+      "You are not authorized to send an invitation for this event",
+    );
   }
 
-  const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+  });
   if (!targetUser) throw new Error("Target user not found");
 
   const existingParticipant = await prisma.participant.findUnique({
@@ -22,7 +36,8 @@ const sendInvitation = async (eventId: string, targetUserId: string, requesterId
   const existingInvitation = await prisma.invitation.findUnique({
     where: { eventId_userId: { eventId, userId: targetUserId } },
   });
-  if (existingInvitation) throw new Error("An invitation already exists for this user");
+  if (existingInvitation)
+    throw new Error("An invitation already exists for this user");
 
   const isPaidEvent = event.fee > 0;
   const paymentStatus = isPaidEvent ? PaymentStatus.UNPAID : PaymentStatus.PAID;
@@ -39,6 +54,26 @@ const sendInvitation = async (eventId: string, targetUserId: string, requesterId
   return invitation;
 };
 
+const sendInvitationByEmail = async (
+  eventId: string,
+  email: string,
+  requesterId: string,
+) => {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) throw new Error("Email is required");
+
+  const targetUser = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true },
+  });
+
+  if (!targetUser) {
+    throw new Error("Target user not found with this email");
+  }
+
+  return sendInvitation(eventId, targetUser.id, requesterId);
+};
+
 const acceptInvitation = async (invitationId: string, targetUserId: string) => {
   const invitation = await prisma.invitation.findUnique({
     where: { id: invitationId },
@@ -47,7 +82,8 @@ const acceptInvitation = async (invitationId: string, targetUserId: string) => {
 
   if (!invitation) throw new Error("Invitation not found");
   if (invitation.userId !== targetUserId) throw new Error("Not authorized");
-  if (invitation.status !== InvitationStatus.PENDING) throw new Error("Invitation is not pending");
+  if (invitation.status !== InvitationStatus.PENDING)
+    throw new Error("Invitation is not pending");
 
   const isPaidEvent = invitation.event.fee > 0;
 
@@ -55,7 +91,9 @@ const acceptInvitation = async (invitationId: string, targetUserId: string) => {
     throw new Error("Payment is required before accepting this invitation");
   }
 
-  const participantStatus = isPaidEvent ? ParticipationStatus.PENDING : ParticipationStatus.APPROVED;
+  const participantStatus = isPaidEvent
+    ? ParticipationStatus.PENDING
+    : ParticipationStatus.APPROVED;
 
   const [updatedInvitation, participant] = await prisma.$transaction([
     prisma.invitation.update({
@@ -75,14 +113,18 @@ const acceptInvitation = async (invitationId: string, targetUserId: string) => {
   return { invitation: updatedInvitation, participant };
 };
 
-const declineInvitation = async (invitationId: string, targetUserId: string) => {
+const declineInvitation = async (
+  invitationId: string,
+  targetUserId: string,
+) => {
   const invitation = await prisma.invitation.findUnique({
     where: { id: invitationId },
   });
 
   if (!invitation) throw new Error("Invitation not found");
   if (invitation.userId !== targetUserId) throw new Error("Not authorized");
-  if (invitation.status !== InvitationStatus.PENDING) throw new Error("Invitation is not pending");
+  if (invitation.status !== InvitationStatus.PENDING)
+    throw new Error("Invitation is not pending");
 
   const updatedInvitation = await prisma.invitation.update({
     where: { id: invitationId },
@@ -101,6 +143,7 @@ const getUserInvitations = async (userId: string) => {
 
 export const InvitationService = {
   sendInvitation,
+  sendInvitationByEmail,
   acceptInvitation,
   declineInvitation,
   getUserInvitations,
