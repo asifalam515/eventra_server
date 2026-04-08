@@ -1,19 +1,49 @@
 import { Request, Response } from "express";
 import { ReviewService } from "./review.service";
 
+const getAllReviews = async (req: Request, res: Response) => {
+  try {
+    const reviews = await ReviewService.getAllReview();
+    res.status(200).json({
+      success: true,
+      message: "Reviews fetched successfully",
+      data: reviews,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch reviews",
+    });
+  }
+};
 const createReview = async (req: Request, res: Response) => {
   try {
     const { eventId, rating, comment } = req.body;
     const userId = req.user?.id as string;
 
     if (!eventId || !rating || !comment) {
-      return res.status(400).json({ success: false, message: "eventId, rating, and comment are required" });
+      return res.status(400).json({
+        success: false,
+        message: "eventId, rating, and comment are required",
+      });
     }
 
-    const review = await ReviewService.createReview(eventId, userId, parseInt(rating), comment);
-    res.status(201).json({ success: true, message: "Review created successfully", data: review });
+    const review = await ReviewService.createReview(
+      eventId,
+      userId,
+      parseInt(rating),
+      comment,
+    );
+    res.status(201).json({
+      success: true,
+      message: "Review created successfully",
+      data: review,
+    });
   } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message || "Failed to create review" });
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to create review",
+    });
   }
 };
 
@@ -21,9 +51,16 @@ const getReviewsByEvent = async (req: Request, res: Response) => {
   try {
     const { eventId } = req.params;
     const reviews = await ReviewService.getReviewsByEvent(eventId as string);
-    res.status(200).json({ success: true, message: "Reviews fetched successfully", data: reviews });
+    res.status(200).json({
+      success: true,
+      message: "Reviews fetched successfully",
+      data: reviews,
+    });
   } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message || "Failed to fetch reviews" });
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch reviews",
+    });
   }
 };
 
@@ -33,10 +70,22 @@ const updateReview = async (req: Request, res: Response) => {
     const { rating, comment } = req.body;
     const userId = req.user?.id as string;
 
-    const review = await ReviewService.updateReview(id as string, userId, parseInt(rating), comment);
-    res.status(200).json({ success: true, message: "Review updated successfully", data: review });
+    const review = await ReviewService.updateReview(
+      id as string,
+      userId,
+      parseInt(rating),
+      comment,
+    );
+    res.status(200).json({
+      success: true,
+      message: "Review updated successfully",
+      data: review,
+    });
   } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message || "Failed to update review" });
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to update review",
+    });
   }
 };
 
@@ -46,9 +95,14 @@ const deleteReview = async (req: Request, res: Response) => {
     const userId = req.user?.id as string;
 
     await ReviewService.deleteReview(id as string, userId);
-    res.status(200).json({ success: true, message: "Review deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Review deleted successfully" });
   } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message || "Failed to delete review" });
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to delete review",
+    });
   }
 };
 
@@ -57,4 +111,5 @@ export const ReviewController = {
   getReviewsByEvent,
   updateReview,
   deleteReview,
+  getAllReviews,
 };

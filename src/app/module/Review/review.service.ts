@@ -1,6 +1,27 @@
 import { ParticipationStatus } from "../../../generated/prisma/enums";
 import { prisma } from "../../../lib/prisma";
 
+const getAllReview = async () => {
+  const [reviews, aggregate] = await Promise.all([
+    prisma.review.findMany({
+      include: {
+        user: { select: { id: true, name: true, photo: true } },
+        event: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.review.aggregate({
+      _avg: { rating: true },
+      _count: { id: true },
+    }),
+  ]);
+
+  return {
+    avgReview: aggregate._avg.rating || 0,
+    reviewCount: aggregate._count.id || 0,
+    reviews,
+  };
+};
 const _updateEventAverageRating = async (eventId: string) => {
   const result = await prisma.review.aggregate({
     _avg: { rating: true },
@@ -17,7 +38,12 @@ const _updateEventAverageRating = async (eventId: string) => {
   });
 };
 
-const createReview = async (eventId: string, userId: string, rating: number, comment: string) => {
+const createReview = async (
+  eventId: string,
+  userId: string,
+  rating: number,
+  comment: string,
+) => {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) throw new Error("Event not found");
 
@@ -45,11 +71,15 @@ const createReview = async (eventId: string, userId: string, rating: number, com
   });
 
   if (!participant) {
-    throw new Error(`Participant not found for this user and event. Are you logged in with the same account that joined the event? (User ID: ${userId})`);
+    throw new Error(
+      `Participant not found for this user and event. Are you logged in with the same account that joined the event? (User ID: ${userId})`,
+    );
   }
-  
+
   if (participant.status !== ParticipationStatus.APPROVED) {
-    throw new Error(`Only approved participants can review this event. Your current status is: ${participant.status}`);
+    throw new Error(
+      `Only approved participants can review this event. Your current status is: ${participant.status}`,
+    );
   }
 
   const existingReview = await prisma.review.findUnique({
@@ -78,14 +108,22 @@ const getReviewsByEvent = async (eventId: string) => {
   return await prisma.review.findMany({
     where: { eventId },
     include: { user: { select: { id: true, name: true, photo: true } } },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
   });
 };
 
-const updateReview = async (reviewId: string, userId: string, rating: number, comment: string) => {
-  const existingReview = await prisma.review.findUnique({ where: { id: reviewId } });
+const updateReview = async (
+  reviewId: string,
+  userId: string,
+  rating: number,
+  comment: string,
+) => {
+  const existingReview = await prisma.review.findUnique({
+    where: { id: reviewId },
+  });
   if (!existingReview) throw new Error("Review not found");
-  if (existingReview.userId !== userId) throw new Error("Not authorized to update this review");
+  if (existingReview.userId !== userId)
+    throw new Error("Not authorized to update this review");
 
   const review = await prisma.review.update({
     where: { id: reviewId },
@@ -98,9 +136,12 @@ const updateReview = async (reviewId: string, userId: string, rating: number, co
 };
 
 const deleteReview = async (reviewId: string, userId: string) => {
-  const existingReview = await prisma.review.findUnique({ where: { id: reviewId } });
+  const existingReview = await prisma.review.findUnique({
+    where: { id: reviewId },
+  });
   if (!existingReview) throw new Error("Review not found");
-  if (existingReview.userId !== userId) throw new Error("Not authorized to delete this review");
+  if (existingReview.userId !== userId)
+    throw new Error("Not authorized to delete this review");
 
   await prisma.review.delete({ where: { id: reviewId } });
 
@@ -114,4 +155,5 @@ export const ReviewService = {
   getReviewsByEvent,
   updateReview,
   deleteReview,
+  getAllReview,
 };
