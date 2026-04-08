@@ -1,7 +1,7 @@
 // src/app.ts
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import express2 from "express";
+import express2, { Router as Router9 } from "express";
 
 // src/app/module/Admin/admin.router.ts
 import { Router } from "express";
@@ -1756,6 +1756,26 @@ var ReportRouter = router7;
 import { Router as Router7 } from "express";
 
 // src/app/module/Review/review.service.ts
+var getAllReview = async () => {
+  const [reviews, aggregate] = await Promise.all([
+    prisma.review.findMany({
+      include: {
+        user: { select: { id: true, name: true, photo: true } },
+        event: { select: { id: true, title: true } }
+      },
+      orderBy: { createdAt: "desc" }
+    }),
+    prisma.review.aggregate({
+      _avg: { rating: true },
+      _count: { id: true }
+    })
+  ]);
+  return {
+    avgReview: aggregate._avg.rating || 0,
+    reviewCount: aggregate._count.id || 0,
+    reviews
+  };
+};
 var _updateEventAverageRating = async (eventId) => {
   const result = await prisma.review.aggregate({
     _avg: { rating: true },
@@ -1790,10 +1810,14 @@ var createReview = async (eventId, userId, rating, comment) => {
     where: { userId_eventId: { userId, eventId } }
   });
   if (!participant) {
-    throw new Error(`Participant not found for this user and event. Are you logged in with the same account that joined the event? (User ID: ${userId})`);
+    throw new Error(
+      `Participant not found for this user and event. Are you logged in with the same account that joined the event? (User ID: ${userId})`
+    );
   }
   if (participant.status !== ParticipationStatus.APPROVED) {
-    throw new Error(`Only approved participants can review this event. Your current status is: ${participant.status}`);
+    throw new Error(
+      `Only approved participants can review this event. Your current status is: ${participant.status}`
+    );
   }
   const existingReview = await prisma.review.findUnique({
     where: { userId_eventId: { userId, eventId } }
@@ -1820,9 +1844,12 @@ var getReviewsByEvent = async (eventId) => {
   });
 };
 var updateReview = async (reviewId, userId, rating, comment) => {
-  const existingReview = await prisma.review.findUnique({ where: { id: reviewId } });
+  const existingReview = await prisma.review.findUnique({
+    where: { id: reviewId }
+  });
   if (!existingReview) throw new Error("Review not found");
-  if (existingReview.userId !== userId) throw new Error("Not authorized to update this review");
+  if (existingReview.userId !== userId)
+    throw new Error("Not authorized to update this review");
   const review = await prisma.review.update({
     where: { id: reviewId },
     data: { rating, comment }
@@ -1831,9 +1858,12 @@ var updateReview = async (reviewId, userId, rating, comment) => {
   return review;
 };
 var deleteReview3 = async (reviewId, userId) => {
-  const existingReview = await prisma.review.findUnique({ where: { id: reviewId } });
+  const existingReview = await prisma.review.findUnique({
+    where: { id: reviewId }
+  });
   if (!existingReview) throw new Error("Review not found");
-  if (existingReview.userId !== userId) throw new Error("Not authorized to delete this review");
+  if (existingReview.userId !== userId)
+    throw new Error("Not authorized to delete this review");
   await prisma.review.delete({ where: { id: reviewId } });
   await _updateEventAverageRating(existingReview.eventId);
   return true;
@@ -1842,30 +1872,68 @@ var ReviewService = {
   createReview,
   getReviewsByEvent,
   updateReview,
-  deleteReview: deleteReview3
+  deleteReview: deleteReview3,
+  getAllReview
 };
 
 // src/app/module/Review/review.controller.ts
+var getAllReviews = async (req, res) => {
+  try {
+    const reviews = await ReviewService.getAllReview();
+    res.status(200).json({
+      success: true,
+      message: "Reviews fetched successfully",
+      data: reviews
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch reviews"
+    });
+  }
+};
 var createReview2 = async (req, res) => {
   try {
     const { eventId, rating, comment } = req.body;
     const userId = req.user?.id;
     if (!eventId || !rating || !comment) {
-      return res.status(400).json({ success: false, message: "eventId, rating, and comment are required" });
+      return res.status(400).json({
+        success: false,
+        message: "eventId, rating, and comment are required"
+      });
     }
-    const review = await ReviewService.createReview(eventId, userId, parseInt(rating), comment);
-    res.status(201).json({ success: true, message: "Review created successfully", data: review });
+    const review = await ReviewService.createReview(
+      eventId,
+      userId,
+      parseInt(rating),
+      comment
+    );
+    res.status(201).json({
+      success: true,
+      message: "Review created successfully",
+      data: review
+    });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message || "Failed to create review" });
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to create review"
+    });
   }
 };
 var getReviewsByEvent2 = async (req, res) => {
   try {
     const { eventId } = req.params;
     const reviews = await ReviewService.getReviewsByEvent(eventId);
-    res.status(200).json({ success: true, message: "Reviews fetched successfully", data: reviews });
+    res.status(200).json({
+      success: true,
+      message: "Reviews fetched successfully",
+      data: reviews
+    });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message || "Failed to fetch reviews" });
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch reviews"
+    });
   }
 };
 var updateReview2 = async (req, res) => {
@@ -1873,10 +1941,22 @@ var updateReview2 = async (req, res) => {
     const { id } = req.params;
     const { rating, comment } = req.body;
     const userId = req.user?.id;
-    const review = await ReviewService.updateReview(id, userId, parseInt(rating), comment);
-    res.status(200).json({ success: true, message: "Review updated successfully", data: review });
+    const review = await ReviewService.updateReview(
+      id,
+      userId,
+      parseInt(rating),
+      comment
+    );
+    res.status(200).json({
+      success: true,
+      message: "Review updated successfully",
+      data: review
+    });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message || "Failed to update review" });
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to update review"
+    });
   }
 };
 var deleteReview4 = async (req, res) => {
@@ -1886,22 +1966,39 @@ var deleteReview4 = async (req, res) => {
     await ReviewService.deleteReview(id, userId);
     res.status(200).json({ success: true, message: "Review deleted successfully" });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message || "Failed to delete review" });
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to delete review"
+    });
   }
 };
 var ReviewController = {
   createReview: createReview2,
   getReviewsByEvent: getReviewsByEvent2,
   updateReview: updateReview2,
-  deleteReview: deleteReview4
+  deleteReview: deleteReview4,
+  getAllReviews
 };
 
 // src/app/module/Review/review.router.ts
 var router8 = Router7();
-router8.post("/", auth_default("USER" /* user */, "ADMIN" /* admin */), ReviewController.createReview);
+router8.get("/", ReviewController.getAllReviews);
+router8.post(
+  "/",
+  auth_default("USER" /* user */, "ADMIN" /* admin */),
+  ReviewController.createReview
+);
 router8.get("/event/:eventId", ReviewController.getReviewsByEvent);
-router8.patch("/:id", auth_default("USER" /* user */, "ADMIN" /* admin */), ReviewController.updateReview);
-router8.delete("/:id", auth_default("USER" /* user */, "ADMIN" /* admin */), ReviewController.deleteReview);
+router8.patch(
+  "/:id",
+  auth_default("USER" /* user */, "ADMIN" /* admin */),
+  ReviewController.updateReview
+);
+router8.delete(
+  "/:id",
+  auth_default("USER" /* user */, "ADMIN" /* admin */),
+  ReviewController.deleteReview
+);
 var ReviewRouter = router8;
 
 // src/app/module/User/user.router.ts
@@ -2001,24 +2098,31 @@ var notFound = (req, res) => {
 
 // src/app.ts
 var app = express2();
+var v1Router = Router9();
+var apiV1Prefixes = ["/api/v1", "/v1"];
 app.use(express2.urlencoded({ extended: true }));
-app.post(
-  "/api/v1/payment/webhook",
-  express2.raw({ type: "application/json" }),
-  PaymentController.stripeWebhook
-);
+for (const prefix of apiV1Prefixes) {
+  app.post(
+    `${prefix}/payment/webhook`,
+    express2.raw({ type: "application/json" }),
+    PaymentController.stripeWebhook
+  );
+}
 app.use(express2.json());
 app.use(cors());
 app.use(cookieParser());
-app.use("/api/v1/auth", AuthRouter.router);
-app.use("/api/v1/events", eventRouter.router);
-app.use("/api/v1/user", userRouter.router);
-app.use("/api/v1/participation", ParticipationRouter);
-app.use("/api/v1/payment", PaymentRoute);
-app.use("/api/v1/invitation", InvitationRouter);
-app.use("/api/v1/review", ReviewRouter);
-app.use("/api/v1/admin", AdminRouter);
-app.use("/api/v1/report", ReportRouter);
+v1Router.use("/auth", AuthRouter.router);
+v1Router.use("/events", eventRouter.router);
+v1Router.use("/user", userRouter.router);
+v1Router.use("/participation", ParticipationRouter);
+v1Router.use("/payment", PaymentRoute);
+v1Router.use("/invitation", InvitationRouter);
+v1Router.use("/review", ReviewRouter);
+v1Router.use("/admin", AdminRouter);
+v1Router.use("/report", ReportRouter);
+for (const prefix of apiV1Prefixes) {
+  app.use(prefix, v1Router);
+}
 app.get("/", (req, res) => {
   res.send("Eventra Server Started");
 });
