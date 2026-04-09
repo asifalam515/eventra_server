@@ -2011,7 +2011,6 @@ var ReviewController = {
 
 // src/app/module/Review/review.router.ts
 var router8 = Router7();
-router8.get("/", ReviewController.getAllReviews);
 router8.post(
   "/",
   auth_default("USER" /* user */, "ADMIN" /* admin */),

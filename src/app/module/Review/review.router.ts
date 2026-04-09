@@ -3,7 +3,7 @@ import auth, { UserRole } from "../../../middleware/auth";
 import { ReviewController } from "./review.controller";
 
 const router = Router();
-router.get("/", ReviewController.getAllReviews);
+// router.get("/", ReviewController.getAllReviews);
 router.post(
   "/",
   auth(UserRole.user, UserRole.admin),
