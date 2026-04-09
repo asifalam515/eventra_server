@@ -1,7 +1,7 @@
 // src/app.ts
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import express2, { Router as Router9 } from "express";
+import express2, { Router as Router10 } from "express";
 
 // src/app/module/Admin/admin.router.ts
 import { Router } from "express";
@@ -803,8 +803,208 @@ router2.post("/login", AuthController.loginUser);
 router2.post("/logout", AuthController.logoutUser);
 var AuthRouter = { router: router2 };
 
-// src/app/module/Event/event.router.ts
+// src/app/module/Chat/chat.router.ts
 import { Router as Router3 } from "express";
+
+// src/app/module/Chat/chat.controller.ts
+import httpStatus from "http-status";
+
+// src/utils/catchAsync.ts
+var catchAsync = (fn) => {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
+
+// src/utils/sendResponse.ts
+var sendResponse = (res, data) => {
+  const { statusCode, success, message, data: dataResponse } = data;
+  res.status(statusCode).json({
+    success,
+    data: dataResponse,
+    message
+  });
+};
+var sendResponse_default = sendResponse;
+
+// src/lib/groq.ts
+import Groq from "groq-sdk";
+var groqClient = null;
+var getGroqClient = () => {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    throw new AppError(500, "GROQ_API_KEY is not configured");
+  }
+  if (!groqClient) {
+    groqClient = new Groq({ apiKey });
+  }
+  return groqClient;
+};
+
+// src/app/module/Chat/chat.service.ts
+var GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+var STOP_WORDS = /* @__PURE__ */ new Set([
+  "find",
+  "me",
+  "the",
+  "a",
+  "an",
+  "events",
+  "event",
+  "this",
+  "that",
+  "for",
+  "to",
+  "with",
+  "and",
+  "or",
+  "is",
+  "are",
+  "best",
+  "which",
+  "show",
+  "any",
+  "please"
+]);
+var hasFreeIntent = (message) => /\b(free|no\s+cost|without\s+cost)\b/i.test(message);
+var hasThisWeekIntent = (message) => /\b(this\s+week|within\s+this\s+week|next\s+7\s+days)\b/i.test(message);
+var hasNetworkingIntent = (message) => /\b(network|networking|connect|community|meet\s+people)\b/i.test(message);
+var extractKeywords = (message) => {
+  return message.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((token) => token.length > 2 && !STOP_WORDS.has(token)).slice(0, 6);
+};
+var rankEvents = (events, networkingIntent) => {
+  return [...events].sort((a, b) => {
+    const aScore = (networkingIntent && a.type === "PUBLIC" ? 3 : 0) + (a.isFeatured ? 2 : 0) + a.reviewCount + a.averageRating * 2;
+    const bScore = (networkingIntent && b.type === "PUBLIC" ? 3 : 0) + (b.isFeatured ? 2 : 0) + b.reviewCount + b.averageRating * 2;
+    if (bScore !== aScore) {
+      return bScore - aScore;
+    }
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
+};
+var buildFallbackReply = (message, events) => {
+  if (!events.length) {
+    return `I could not find matching events for "${message}" right now. Try broadening your query, for example: "free public events this month" or "upcoming networking events in Dhaka".`;
+  }
+  const lines = events.slice(0, 3).map((event, index) => {
+    const feeLabel = event.fee === 0 ? "Free" : `$${event.fee}`;
+    return `${index + 1}. ${event.title} (${new Date(event.date).toDateString()} at ${event.venue}) - ${feeLabel}`;
+  });
+  return `Here are the best matches I found:
+${lines.join("\n")}`;
+};
+var askAssistant = async (message) => {
+  const keywords = extractKeywords(message);
+  const freeIntent = hasFreeIntent(message);
+  const thisWeekIntent = hasThisWeekIntent(message);
+  const networkingIntent = hasNetworkingIntent(message);
+  const now = /* @__PURE__ */ new Date();
+  const endOfWeek = new Date(now);
+  endOfWeek.setDate(now.getDate() + 7);
+  const events = await prisma.event.findMany({
+    where: {
+      eventStatus: "AVAILABLE",
+      ...freeIntent ? { fee: { lte: 0 } } : {},
+      ...thisWeekIntent ? {
+        date: {
+          gte: now,
+          lte: endOfWeek
+        }
+      } : {},
+      ...keywords.length ? {
+        OR: keywords.flatMap((keyword) => [
+          { title: { contains: keyword, mode: "insensitive" } },
+          { description: { contains: keyword, mode: "insensitive" } },
+          { venue: { contains: keyword, mode: "insensitive" } }
+        ])
+      } : {}
+    },
+    orderBy: [{ date: "asc" }, { createdAt: "desc" }],
+    take: 20
+  });
+  const rankedEvents = rankEvents(events, networkingIntent).slice(0, 8);
+  const context = rankedEvents.map((event, index) => {
+    const feeLabel = event.fee === 0 ? "Free" : `$${event.fee}`;
+    return `${index + 1}. ${event.title}
+Date: ${new Date(event.date).toDateString()}
+Time: ${event.time}
+Venue: ${event.venue}
+Fee: ${feeLabel}
+Type: ${event.type}
+Rating: ${event.averageRating} (${event.reviewCount} reviews)`;
+  }).join("\n\n");
+  let reply = buildFallbackReply(message, rankedEvents);
+  try {
+    const groq = getGroqClient();
+    const completion = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: "You are Eventra AI assistant. Only use the provided events data. If data is empty, clearly say no matching events were found and give concise search suggestions."
+        },
+        {
+          role: "user",
+          content: `User request: ${message}
+
+Matching events from DB:
+${context || "No matching events found."}
+
+Respond naturally in concise bullet points.`
+        }
+      ]
+    });
+    reply = completion.choices[0]?.message?.content?.trim() || reply;
+  } catch (error) {
+    console.error("Groq completion failed:", error);
+  }
+  return {
+    reply,
+    matchedEvents: rankedEvents.map((event) => ({
+      id: event.id,
+      title: event.title,
+      date: event.date.toISOString(),
+      time: event.time,
+      venue: event.venue,
+      fee: event.fee,
+      type: event.type,
+      averageRating: event.averageRating,
+      reviewCount: event.reviewCount,
+      isFeatured: event.isFeatured,
+      eventStatus: event.eventStatus
+    }))
+  };
+};
+var ChatService = {
+  askAssistant
+};
+
+// src/app/module/Chat/chat.controller.ts
+var askAssistant2 = catchAsync(async (req, res) => {
+  const message = req.body?.message;
+  if (!message || typeof message !== "string" || !message.trim()) {
+    throw new AppError(httpStatus.BAD_REQUEST, "message is required");
+  }
+  const result = await ChatService.askAssistant(message.trim());
+  sendResponse_default(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Assistant response generated",
+    data: result
+  });
+});
+var ChatController = {
+  askAssistant: askAssistant2
+};
+
+// src/app/module/Chat/chat.router.ts
+var router3 = Router3();
+router3.post("/", ChatController.askAssistant);
+var ChatRouter = router3;
+
+// src/app/module/Event/event.router.ts
+import { Router as Router4 } from "express";
 
 // src/app/module/Event/event.service.ts
 var createEventIntoDB = async (payload, userId) => {
@@ -1027,29 +1227,29 @@ var EventController = {
 };
 
 // src/app/module/Event/event.router.ts
-var router3 = Router3();
-router3.get("/", EventController.getAllEvents);
-router3.get("/upcoming", EventController.getUpcomingEvents);
-router3.post(
+var router4 = Router4();
+router4.get("/", EventController.getAllEvents);
+router4.get("/upcoming", EventController.getUpcomingEvents);
+router4.post(
   "/",
   auth_default("USER" /* user */, "ADMIN" /* admin */, "MODERATOR" /* moderator */),
   EventController.createEvent
 );
-router3.get("/:id", EventController.getSingleEvent);
-router3.put(
+router4.get("/:id", EventController.getSingleEvent);
+router4.put(
   "/:id",
   auth_default("USER" /* user */, "ADMIN" /* admin */, "MODERATOR" /* moderator */),
   EventController.updateEvent
 );
-router3.delete(
+router4.delete(
   "/:id",
   auth_default("USER" /* user */, "ADMIN" /* admin */, "MODERATOR" /* moderator */),
   EventController.deleteEvent
 );
-var eventRouter = { router: router3 };
+var eventRouter = { router: router4 };
 
 // src/app/module/Invitation/invitation.router.ts
-import { Router as Router4 } from "express";
+import { Router as Router5 } from "express";
 
 // src/app/module/Invitation/invitation.service.ts
 var sendInvitation = async (eventId, targetUserId, requesterId) => {
@@ -1272,36 +1472,36 @@ var InvitationController = {
 };
 
 // src/app/module/Invitation/invitation.router.ts
-var router4 = Router4();
-router4.post(
+var router5 = Router5();
+router5.post(
   "/send",
   auth_default("ADMIN" /* admin */, "USER" /* user */),
   InvitationController.sendInvitation
 );
-router4.post(
+router5.post(
   "/send-by-email",
   auth_default("ADMIN" /* admin */, "USER" /* user */),
   InvitationController.sendInvitationByEmail
 );
-router4.patch(
+router5.patch(
   "/:id/accept",
   auth_default("USER" /* user */, "ADMIN" /* admin */),
   InvitationController.acceptInvitation
 );
-router4.patch(
+router5.patch(
   "/:id/decline",
   auth_default("USER" /* user */, "ADMIN" /* admin */),
   InvitationController.declineInvitation
 );
-router4.get(
+router5.get(
   "/my-invitations",
   auth_default("USER" /* user */, "ADMIN" /* admin */),
   InvitationController.getUserInvitations
 );
-var InvitationRouter = router4;
+var InvitationRouter = router5;
 
 // src/app/module/Participation/participation.router.ts
-import { Router as Router5 } from "express";
+import { Router as Router6 } from "express";
 
 // src/app/module/Participation/participation.service.ts
 var joinEvent = async (userId, eventId) => {
@@ -1461,55 +1661,37 @@ var ParticipationController = {
 };
 
 // src/app/module/Participation/participation.router.ts
-var router5 = Router5();
-router5.patch(
+var router6 = Router6();
+router6.patch(
   "/update-status",
   auth_default("ADMIN" /* admin */, "USER" /* user */),
   ParticipationController.updateParticipationStatus
 );
-router5.post(
+router6.post(
   "/join",
   auth_default("ADMIN" /* admin */, "USER" /* user */),
   ParticipationController.joinEvent
 );
-router5.get(
+router6.get(
   "/:eventId",
   auth_default("ADMIN" /* admin */, "USER" /* user */),
   ParticipationController.getAllParticipants
 );
-var ParticipationRouter = router5;
+var ParticipationRouter = router6;
 
 // src/app/module/Payment/payment.controller.ts
-import httpStatus2 from "http-status";
+import httpStatus3 from "http-status";
 import Stripe2 from "stripe";
 
-// src/utils/catchAsync.ts
-var catchAsync = (fn) => {
-  return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-};
-
-// src/utils/sendResponse.ts
-var sendResponse = (res, data) => {
-  const { statusCode, success, message, data: dataResponse } = data;
-  res.status(statusCode).json({
-    success,
-    data: dataResponse,
-    message
-  });
-};
-var sendResponse_default = sendResponse;
-
 // src/app/module/Payment/payment.service.ts
-import httpStatus from "http-status";
+import httpStatus2 from "http-status";
 import Stripe from "stripe";
 var stripeClient = null;
 var getStripeClient = () => {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeSecretKey) {
     throw new AppError(
-      httpStatus.INTERNAL_SERVER_ERROR,
+      httpStatus2.INTERNAL_SERVER_ERROR,
       "Stripe is not configured"
     );
   }
@@ -1521,7 +1703,7 @@ var getStripeClient = () => {
 var markPaymentAsPaid = async (transactionId) => {
   const payment = await prisma.payment.findUnique({ where: { transactionId } });
   if (!payment) {
-    throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
+    throw new AppError(httpStatus2.NOT_FOUND, "Payment record not found");
   }
   await prisma.payment.update({
     where: { transactionId },
@@ -1540,14 +1722,14 @@ var createPaymentIntent = async (userEmail, eventId) => {
   const stripe = getStripeClient();
   const user = await prisma.user.findUnique({ where: { email: userEmail } });
   if (!user) {
-    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+    throw new AppError(httpStatus2.NOT_FOUND, "User not found");
   }
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) {
-    throw new AppError(httpStatus.NOT_FOUND, "Event not found");
+    throw new AppError(httpStatus2.NOT_FOUND, "Event not found");
   }
   if (event.fee <= 0) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Event is free");
+    throw new AppError(httpStatus2.BAD_REQUEST, "Event is free");
   }
   const amount = Math.round(event.fee * 100);
   const paymentIntent = await stripe.paymentIntents.create({
@@ -1630,7 +1812,7 @@ var confirmPayment = async (transactionId) => {
   }
   if (existingIntent.status !== "requires_confirmation") {
     throw new AppError(
-      httpStatus.BAD_REQUEST,
+      httpStatus2.BAD_REQUEST,
       `Payment cannot be confirmed in current state: ${existingIntent.status}`
     );
   }
@@ -1650,7 +1832,7 @@ var confirmPayment = async (transactionId) => {
       clientSecret: paymentIntent.client_secret
     };
   } else {
-    throw new AppError(httpStatus.BAD_REQUEST, "Payment confirmation failed");
+    throw new AppError(httpStatus2.BAD_REQUEST, "Payment confirmation failed");
   }
 };
 var PaymentService = {
@@ -1665,7 +1847,7 @@ var getStripeClient2 = () => {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeSecretKey) {
     throw new AppError(
-      httpStatus2.INTERNAL_SERVER_ERROR,
+      httpStatus3.INTERNAL_SERVER_ERROR,
       "Stripe is not configured"
     );
   }
@@ -1678,11 +1860,11 @@ var createPaymentIntent2 = catchAsync(async (req, res) => {
   const { eventId } = req.body;
   const user = req.user;
   if (!user || !user.email) {
-    throw new AppError(httpStatus2.UNAUTHORIZED, "User not authenticated");
+    throw new AppError(httpStatus3.UNAUTHORIZED, "User not authenticated");
   }
   const result = await PaymentService.createPaymentIntent(user.email, eventId);
   sendResponse_default(res, {
-    statusCode: httpStatus2.OK,
+    statusCode: httpStatus3.OK,
     success: true,
     message: "Payment intent created successfully",
     data: result
@@ -1711,12 +1893,12 @@ var stripeWebhook = async (req, res) => {
 var confirmPayment2 = catchAsync(async (req, res) => {
   const { transactionId } = req.body;
   if (!transactionId) {
-    throw new AppError(httpStatus2.BAD_REQUEST, "transactionId is required");
+    throw new AppError(httpStatus3.BAD_REQUEST, "transactionId is required");
   }
   const result = await PaymentService.confirmPayment(transactionId);
   const message = result.status === "PAID" ? "Payment confirmed successfully" : "Payment requires additional action";
   sendResponse_default(res, {
-    statusCode: httpStatus2.OK,
+    statusCode: httpStatus3.OK,
     success: true,
     message,
     data: result
@@ -1730,21 +1912,21 @@ var PaymentController = {
 
 // src/app/module/Payment/payment.route.ts
 import express from "express";
-var router6 = express.Router();
-router6.post(
+var router7 = express.Router();
+router7.post(
   "/create-intent",
   auth_default("USER" /* user */),
   PaymentController.createPaymentIntent
 );
-router6.post(
+router7.post(
   "/confirm",
   auth_default("USER" /* user */),
   PaymentController.confirmPayment
 );
-var PaymentRoute = router6;
+var PaymentRoute = router7;
 
 // src/app/module/Report/report.router.ts
-import { Router as Router6 } from "express";
+import { Router as Router7 } from "express";
 
 // src/app/module/Report/report.service.ts
 var createReport = async (userId, targetType, targetId, reason) => {
@@ -1776,13 +1958,13 @@ var createReport2 = async (req, res) => {
 var ReportController = { createReport: createReport2 };
 
 // src/app/module/Report/report.router.ts
-var router7 = Router6();
+var router8 = Router7();
 var requireAuth = auth_default("USER" /* user */, "ADMIN" /* admin */, "MODERATOR" /* moderator */);
-router7.post("/", requireAuth, ReportController.createReport);
-var ReportRouter = router7;
+router8.post("/", requireAuth, ReportController.createReport);
+var ReportRouter = router8;
 
 // src/app/module/Review/review.router.ts
-import { Router as Router7 } from "express";
+import { Router as Router8 } from "express";
 
 // src/app/module/Review/review.service.ts
 var getAllReview = async () => {
@@ -2010,27 +2192,28 @@ var ReviewController = {
 };
 
 // src/app/module/Review/review.router.ts
-var router8 = Router7();
-router8.post(
+var router9 = Router8();
+router9.get("/", ReviewController.getAllReviews);
+router9.post(
   "/",
   auth_default("USER" /* user */, "ADMIN" /* admin */),
   ReviewController.createReview
 );
-router8.get("/event/:eventId", ReviewController.getReviewsByEvent);
-router8.patch(
+router9.get("/event/:eventId", ReviewController.getReviewsByEvent);
+router9.patch(
   "/:id",
   auth_default("USER" /* user */, "ADMIN" /* admin */),
   ReviewController.updateReview
 );
-router8.delete(
+router9.delete(
   "/:id",
   auth_default("USER" /* user */, "ADMIN" /* admin */),
   ReviewController.deleteReview
 );
-var ReviewRouter = router8;
+var ReviewRouter = router9;
 
 // src/app/module/User/user.router.ts
-import { Router as Router8 } from "express";
+import { Router as Router9 } from "express";
 
 // src/app/module/User/user.service.ts
 var getUserById = async (id) => {
@@ -2086,10 +2269,10 @@ var updateUserProfile2 = async (req, res) => {
 var UserController = { updateUserProfile: updateUserProfile2, getUserById: getUserById2 };
 
 // src/app/module/User/user.router.ts
-var router9 = Router8();
-router9.patch("/profile/:id", UserController.updateUserProfile);
-router9.get("/:id", UserController.getUserById);
-var userRouter = { router: router9 };
+var router10 = Router9();
+router10.patch("/profile/:id", UserController.updateUserProfile);
+router10.get("/:id", UserController.getUserById);
+var userRouter = { router: router10 };
 
 // src/middleware/globalErrorHandler.ts
 var globalErrorHandler = (error, req, res, next) => {
@@ -2126,7 +2309,7 @@ var notFound = (req, res) => {
 
 // src/app.ts
 var app = express2();
-var v1Router = Router9();
+var v1Router = Router10();
 var apiV1Prefixes = ["/api/v1", "/v1"];
 app.use(express2.urlencoded({ extended: true }));
 for (const prefix of apiV1Prefixes) {
@@ -2141,6 +2324,7 @@ app.use(cors());
 app.use(cookieParser());
 v1Router.use("/auth", AuthRouter.router);
 v1Router.use("/events", eventRouter.router);
+v1Router.use("/chat", ChatRouter);
 v1Router.use("/user", userRouter.router);
 v1Router.use("/participation", ParticipationRouter);
 v1Router.use("/payment", PaymentRoute);

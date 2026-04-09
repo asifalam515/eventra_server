@@ -3,6 +3,7 @@ import cors from "cors";
 import express, { Application, Request, Response, Router } from "express";
 import { AdminRouter } from "./app/module/Admin/admin.router";
 import { AuthRouter } from "./app/module/Auth/auth.router";
+import { ChatRouter } from "./app/module/Chat/chat.router";
 import { eventRouter } from "./app/module/Event/event.router";
 import { InvitationRouter } from "./app/module/Invitation/invitation.router";
 import { ParticipationRouter } from "./app/module/Participation/participation.router";
@@ -39,6 +40,7 @@ app.use(cookieParser());
 // Routers
 v1Router.use("/auth", AuthRouter.router);
 v1Router.use("/events", eventRouter.router);
+v1Router.use("/chat", ChatRouter);
 v1Router.use("/user", userRouter.router);
 v1Router.use("/participation", ParticipationRouter);
 v1Router.use("/payment", PaymentRoute);
