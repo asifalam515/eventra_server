@@ -1,4 +1,3 @@
-import { ParticipationStatus } from "../../../generated/prisma/enums";
 import { prisma } from "../../../lib/prisma";
 
 const getAllReview = async () => {
@@ -76,7 +75,7 @@ const createReview = async (
     );
   }
 
-  if (participant.status !== ParticipationStatus.APPROVED) {
+  if (participant.status !== "APPROVED") {
     throw new Error(
       `Only approved participants can review this event. Your current status is: ${participant.status}`,
     );

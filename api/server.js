@@ -1504,7 +1504,20 @@ var sendResponse_default = sendResponse;
 // src/app/module/Payment/payment.service.ts
 import httpStatus from "http-status";
 import Stripe from "stripe";
-var stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {});
+var stripeClient = null;
+var getStripeClient = () => {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecretKey) {
+    throw new AppError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Stripe is not configured"
+    );
+  }
+  if (!stripeClient) {
+    stripeClient = new Stripe(stripeSecretKey, {});
+  }
+  return stripeClient;
+};
 var markPaymentAsPaid = async (transactionId) => {
   const payment = await prisma.payment.findUnique({ where: { transactionId } });
   if (!payment) {
@@ -1524,6 +1537,7 @@ var markPaymentAsPaid = async (transactionId) => {
   });
 };
 var createPaymentIntent = async (userEmail, eventId) => {
+  const stripe = getStripeClient();
   const user = await prisma.user.findUnique({ where: { email: userEmail } });
   if (!user) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
@@ -1597,6 +1611,7 @@ var handleStripeWebhook = async (event) => {
   }
 };
 var confirmPayment = async (transactionId) => {
+  const stripe = getStripeClient();
   const existingIntent = await stripe.paymentIntents.retrieve(transactionId);
   if (existingIntent.status === "succeeded" || existingIntent.status === "processing" || existingIntent.status === "requires_capture") {
     await markPaymentAsPaid(transactionId);
@@ -1645,7 +1660,20 @@ var PaymentService = {
 };
 
 // src/app/module/Payment/payment.controller.ts
-var stripe2 = new Stripe2(process.env.STRIPE_SECRET_KEY, {});
+var stripeClient2 = null;
+var getStripeClient2 = () => {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecretKey) {
+    throw new AppError(
+      httpStatus2.INTERNAL_SERVER_ERROR,
+      "Stripe is not configured"
+    );
+  }
+  if (!stripeClient2) {
+    stripeClient2 = new Stripe2(stripeSecretKey, {});
+  }
+  return stripeClient2;
+};
 var createPaymentIntent2 = catchAsync(async (req, res) => {
   const { eventId } = req.body;
   const user = req.user;
@@ -1661,12 +1689,13 @@ var createPaymentIntent2 = catchAsync(async (req, res) => {
   });
 });
 var stripeWebhook = async (req, res) => {
+  const stripe = getStripeClient2();
   const sig = req.headers["stripe-signature"];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
   let event;
   try {
     if (!endpointSecret) throw new Error("Stripe webhook secret is missing");
-    event = stripe2.webhooks.constructEvent(req.body, sig, endpointSecret);
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
     console.error(`Webhook Error: ${err.message}`);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -1814,7 +1843,7 @@ var createReview = async (eventId, userId, rating, comment) => {
       `Participant not found for this user and event. Are you logged in with the same account that joined the event? (User ID: ${userId})`
     );
   }
-  if (participant.status !== ParticipationStatus.APPROVED) {
+  if (participant.status !== "APPROVED") {
     throw new Error(
       `Only approved participants can review this event. Your current status is: ${participant.status}`
     );

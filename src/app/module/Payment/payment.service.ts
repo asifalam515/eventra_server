@@ -3,7 +3,24 @@ import Stripe from "stripe";
 import { prisma } from "../../../lib/prisma";
 import { AppError } from "../../errors/AppErrors";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {});
+let stripeClient: Stripe | null = null;
+
+const getStripeClient = () => {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+  if (!stripeSecretKey) {
+    throw new AppError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Stripe is not configured",
+    );
+  }
+
+  if (!stripeClient) {
+    stripeClient = new Stripe(stripeSecretKey, {});
+  }
+
+  return stripeClient;
+};
 
 const markPaymentAsPaid = async (transactionId: string) => {
   const payment = await prisma.payment.findUnique({ where: { transactionId } });
@@ -28,6 +45,8 @@ const markPaymentAsPaid = async (transactionId: string) => {
 };
 
 const createPaymentIntent = async (userEmail: string, eventId: string) => {
+  const stripe = getStripeClient();
+
   // Check user and event
   const user = await prisma.user.findUnique({ where: { email: userEmail } });
   if (!user) {
@@ -118,6 +137,8 @@ const handleStripeWebhook = async (event: Stripe.Event) => {
 };
 
 const confirmPayment = async (transactionId: string) => {
+  const stripe = getStripeClient();
+
   const existingIntent = await stripe.paymentIntents.retrieve(transactionId);
 
   if (

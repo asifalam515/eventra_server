@@ -6,7 +6,24 @@ import sendResponse from "../../../utils/sendResponse";
 import { AppError } from "../../errors/AppErrors";
 import { PaymentService } from "./payment.service";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {});
+let stripeClient: Stripe | null = null;
+
+const getStripeClient = () => {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+  if (!stripeSecretKey) {
+    throw new AppError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Stripe is not configured",
+    );
+  }
+
+  if (!stripeClient) {
+    stripeClient = new Stripe(stripeSecretKey, {});
+  }
+
+  return stripeClient;
+};
 
 const createPaymentIntent = catchAsync(async (req: Request, res: Response) => {
   const { eventId } = req.body;
@@ -27,6 +44,7 @@ const createPaymentIntent = catchAsync(async (req: Request, res: Response) => {
 });
 
 const stripeWebhook = async (req: Request, res: Response) => {
+  const stripe = getStripeClient();
   const sig = req.headers["stripe-signature"] as string;
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
