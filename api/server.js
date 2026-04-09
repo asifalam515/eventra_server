@@ -1,7 +1,7 @@
 // src/app.ts
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import express2, { Router as Router9 } from "express";
+import express2 from "express";
 
 // src/app/module/Admin/admin.router.ts
 import { Router } from "express";
@@ -2126,7 +2126,6 @@ var notFound = (req, res) => {
 
 // src/app.ts
 var app = express2();
-var v1Router = Router9();
 var apiV1Prefixes = ["/api/v1", "/v1"];
 app.use(express2.urlencoded({ extended: true }));
 for (const prefix of apiV1Prefixes) {
@@ -2139,18 +2138,15 @@ for (const prefix of apiV1Prefixes) {
 app.use(express2.json());
 app.use(cors());
 app.use(cookieParser());
-v1Router.use("/auth", AuthRouter.router);
-v1Router.use("/events", eventRouter.router);
-v1Router.use("/user", userRouter.router);
-v1Router.use("/participation", ParticipationRouter);
-v1Router.use("/payment", PaymentRoute);
-v1Router.use("/invitation", InvitationRouter);
-v1Router.use("/review", ReviewRouter);
-v1Router.use("/admin", AdminRouter);
-v1Router.use("/report", ReportRouter);
-for (const prefix of apiV1Prefixes) {
-  app.use(prefix, v1Router);
-}
+app.use("/auth", AuthRouter.router);
+app.use("/events", eventRouter.router);
+app.use("/user", userRouter.router);
+app.use("/participation", ParticipationRouter);
+app.use("/payment", PaymentRoute);
+app.use("/invitation", InvitationRouter);
+app.use("/review", ReviewRouter);
+app.use("/admin", AdminRouter);
+app.use("/report", ReportRouter);
 app.get("/", (req, res) => {
   res.send("Eventra Server Started");
 });
