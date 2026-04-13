@@ -1,7 +1,9 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { Application, Request, Response, Router } from "express";
+import passport from "passport";
 import { AdminRouter } from "./app/module/Admin/admin.router";
+import "./app/module/Auth/auth.passport";
 import { AuthRouter } from "./app/module/Auth/auth.router";
 import { ChatRouter } from "./app/module/Chat/chat.router";
 import { eventRouter } from "./app/module/Event/event.router";
@@ -36,6 +38,7 @@ for (const prefix of apiV1Prefixes) {
 app.use(express.json());
 app.use(cors());
 app.use(cookieParser());
+app.use(passport.initialize());
 
 // Routers
 v1Router.use("/auth", AuthRouter.router);

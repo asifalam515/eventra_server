@@ -27,6 +27,15 @@ export const Status = {
 export type Status = (typeof Status)[keyof typeof Status]
 
 
+export const AuthProvider = {
+  LOCAL: 'LOCAL',
+  GOOGLE: 'GOOGLE',
+  FACEBOOK: 'FACEBOOK'
+} as const
+
+export type AuthProvider = (typeof AuthProvider)[keyof typeof AuthProvider]
+
+
 export const EventType = {
   PUBLIC: 'PUBLIC',
   PRIVATE: 'PRIVATE'

@@ -26,6 +26,13 @@ enum Status{
   INACTIVE 
   BLOCKED
 }
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  FACEBOOK
+}
+
 enum EventType {
   PUBLIC
   PRIVATE
@@ -83,7 +90,9 @@ model User {
   id            String   @id @default(uuid())
   name          String
   email         String   @unique
-  password      String
+  password      String?
+  authProvider  AuthProvider @default(LOCAL)
+  providerId    String? @unique
   status        Status @default(ACTIVE)
   photo         String?
   role          Role     @default(USER)

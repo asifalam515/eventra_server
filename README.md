@@ -55,6 +55,8 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 JWT_SECRET=your_jwt_secret
 STRIPE_SECRET_KEY=your_stripe_secret_key
 STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+FACEBOOK_APP_ID=your_facebook_app_id
+FACEBOOK_APP_SECRET=your_facebook_app_secret
 ```
 
 ### 3. Generate Prisma client and run migrations
@@ -78,3 +80,29 @@ The app will run at: http://localhost:5000
 npm run build
 npm start
 ```
+
+## Authentication (Passport.js: Email + Facebook)
+
+### Backend endpoints
+
+- `POST /api/v1/auth/social/facebook`
+
+### Request payloads
+
+Facebook:
+
+```json
+{
+  "accessToken": "FACEBOOK_USER_ACCESS_TOKEN"
+}
+```
+
+### Response
+
+Both login endpoints return:
+
+- JWT token (also set in cookie as `token`)
+- Logged in / newly created user
+
+- Local email/password login is handled by Passport Local strategy.
+- Facebook login is handled by Passport Facebook Token strategy.
